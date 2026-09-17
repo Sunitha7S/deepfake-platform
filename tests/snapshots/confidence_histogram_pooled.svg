@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="300" viewBox="0 0 460 300" role="img" aria-label="Pooled scores">
+<rect width="460" height="300" fill="#ffffff"/>
+<text x="16" y="22" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#1b1f24">Pooled scores</text>
+<text x="16" y="36" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#8a9199">n=400  20 bins</text>
+<line x1="52.00" y1="252.00" x2="444.00" y2="252.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="255.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0</text>
+<line x1="52.00" y1="204.00" x2="444.00" y2="204.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="207.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">11</text>
+<line x1="52.00" y1="156.00" x2="444.00" y2="156.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="159.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">22</text>
+<line x1="52.00" y1="108.00" x2="444.00" y2="108.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="111.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">33</text>
+<line x1="52.00" y1="60.00" x2="444.00" y2="60.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="63.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">44</text>
+<text x="52.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.00</text>
+<text x="150.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.25</text>
+<text x="248.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.50</text>
+<text x="346.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.75</text>
+<text x="444.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">1.00</text>
+<rect x="52" y="60" width="392.00" height="192.00" fill="none" stroke="#8a9199" stroke-width="1"/>
+<text x="248.00" y="290" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#1b1f24">p(manipulated)</text>
+<text x="14" y="156.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#1b1f24" transform="rotate(-90 14 156.00)">count</text>
+<polyline points="52.00,252.00 52.00,60.00 71.60,60.00 71.60,116.73 91.20,116.73 91.20,138.55 110.80,138.55 110.80,169.09 130.40,169.09 130.40,177.82 150.00,177.82 150.00,186.55 169.60,186.55 169.60,195.27 189.20,195.27 189.20,199.64 208.80,199.64 208.80,199.64 228.40,199.64 228.40,204.00 248.00,204.00 248.00,204.00 267.60,204.00 267.60,199.64 287.20,199.64 287.20,199.64 306.80,199.64 306.80,195.27 326.40,195.27 326.40,186.55 346.00,186.55 346.00,177.82 365.60,177.82 365.60,169.09 385.20,169.09 385.20,138.55 404.80,138.55 404.80,116.73 424.40,116.73 424.40,60.00 444.00,60.00 444.00,252.00" fill="#1b1f24" fill-opacity="0.18" stroke="#1b1f24" stroke-width="1.4"/>
+<rect x="52.00" y="45.00" width="9" height="9" fill="#1b1f24" opacity="0.85"/>
+<text x="65.00" y="52.00" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#1b1f24">all</text>
+</svg>

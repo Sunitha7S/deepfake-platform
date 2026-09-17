@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="300" viewBox="0 0 460 300" role="img" aria-label="Score distribution">
+<rect width="460" height="300" fill="#ffffff"/>
+<text x="16" y="22" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#1b1f24">Score distribution</text>
+<text x="16" y="36" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#8a9199">n=400  20 bins  band [0.400, 0.600)</text>
+<rect x="208.80" y="60" width="78.40" height="192.00" fill="#f0d97d" opacity="0.35"/>
+<line x1="52.00" y1="252.00" x2="444.00" y2="252.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="255.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0</text>
+<line x1="52.00" y1="206.29" x2="444.00" y2="206.29" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="209.79" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">10</text>
+<line x1="52.00" y1="160.57" x2="444.00" y2="160.57" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="164.07" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">20</text>
+<line x1="52.00" y1="114.86" x2="444.00" y2="114.86" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="118.36" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">30</text>
+<line x1="52.00" y1="69.14" x2="444.00" y2="69.14" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="72.64" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">40</text>
+<text x="52.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.00</text>
+<text x="150.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.25</text>
+<text x="248.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.50</text>
+<text x="346.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.75</text>
+<text x="444.00" y="266.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">1.00</text>
+<rect x="52" y="60" width="392.00" height="192.00" fill="none" stroke="#8a9199" stroke-width="1"/>
+<text x="248.00" y="290" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#1b1f24">p(manipulated)</text>
+<text x="14" y="156.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#1b1f24" transform="rotate(-90 14 156.00)">count</text>
+<polyline points="52.00,252.00 52.00,60.00 71.60,60.00 71.60,119.43 91.20,119.43 91.20,146.86 110.80,146.86 110.80,174.29 130.40,174.29 130.40,188.00 150.00,188.00 150.00,201.71 169.60,201.71 169.60,206.29 189.20,206.29 189.20,215.43 208.80,215.43 208.80,220.00 228.40,220.00 228.40,224.57 248.00,224.57 248.00,229.14 267.60,229.14 267.60,229.14 287.20,229.14 287.20,233.71 306.80,233.71 306.80,238.29 326.40,238.29 326.40,233.71 346.00,233.71 346.00,238.29 365.60,238.29 365.60,242.86 385.20,242.86 385.20,238.29 404.80,238.29 404.80,242.86 424.40,242.86 424.40,242.86 444.00,242.86 444.00,252.00" fill="#2f6f9f" fill-opacity="0.18" stroke="#2f6f9f" stroke-width="1.4"/>
+<polyline points="52.00,252.00 52.00,242.86 71.60,242.86 71.60,242.86 91.20,242.86 91.20,238.29 110.80,238.29 110.80,242.86 130.40,242.86 130.40,238.29 150.00,238.29 150.00,233.71 169.60,233.71 169.60,238.29 189.20,238.29 189.20,233.71 208.80,233.71 208.80,229.14 228.40,229.14 228.40,229.14 248.00,229.14 248.00,224.57 267.60,224.57 267.60,220.00 287.20,220.00 287.20,215.43 306.80,215.43 306.80,206.29 326.40,206.29 326.40,201.71 346.00,201.71 346.00,188.00 365.60,188.00 365.60,174.29 385.20,174.29 385.20,146.86 404.80,146.86 404.80,119.43 424.40,119.43 424.40,60.00 444.00,60.00 444.00,252.00" fill="#c25a30" fill-opacity="0.18" stroke="#c25a30" stroke-width="1.4"/>
+<line x1="248.00" y1="60" x2="248.00" y2="252.00" stroke="#1b1f24" stroke-width="1" stroke-dasharray="3 2"/>
+<rect x="52.00" y="45.00" width="9" height="9" fill="#2f6f9f" opacity="0.85"/>
+<text x="65.00" y="52.00" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#1b1f24">authentic</text>
+<rect x="124.40" y="45.00" width="9" height="9" fill="#c25a30" opacity="0.85"/>
+<text x="137.40" y="52.00" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#1b1f24">manipulated</text>
+</svg>

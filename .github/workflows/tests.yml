@@ -1,0 +1,32 @@
+# B24 (N5), docs/B24_N5_DESIGN.md §3.2.
+#
+# UNEXERCISED: this repository has no git remote and no commit history as of
+# B24 (see docs/B24_N5_DESIGN.md §1.3), so this workflow has never actually
+# run in GitHub Actions. It is authored conservatively (pinned action
+# versions, the same 3.12 interpreter pinned by .python-version) so it is
+# correct the moment the repo is hosted, but verify it on first push rather
+# than trusting it as tested.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.11.28"
+
+      # --locked fails the job on any drift between pyproject.toml and
+      # uv.lock instead of silently rewriting the lock (PA6,
+      # docs/B24_N5_DESIGN.md §6.2).
+      - name: Install dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Run test suite
+        run: uv run python tests/run_all.py

@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# generated
+fixtures_out/
+schema_out/
+.pytest_cache/
+.ruff_cache/
+
+# never commit
+.env
+*.pt
+*.pth
+*.onnx
+*.pkl
+data/

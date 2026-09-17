@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepfake-platform"
+version = "0.1.0"
+description = "Image and video deepfake detection platform"
+requires-python = ">=3.12"
+# Derived from the AST by `python tests/import_audit.py`, not maintained by hand,
+# and asserted by tests/test_dependencies.py. Every entry below is imported at
+# MODULE SCOPE by a package that ships, which is what makes it a runtime
+# dependency: importing that package fails without it.
+#
+# Until S8 Batch 5 this listed pydantic alone, while numpy was imported at module
+# scope in twelve files. Nothing caught it for eight stages because the machine
+# these were written on had numpy installed for other reasons — a
+# hand-maintained list fails silently and only for the next person.
+dependencies = [
+    "pydantic>=2.9,<3",
+    # numpy is capped below 2.0 deliberately. The 2.x line changed scalar
+    # promotion and repr, and `contracts.version._canonical` fingerprints float
+    # `repr` on purpose — a promotion change there moves cache keys without
+    # moving a single verdict.
+    "numpy>=1.26,<2",
+    "opencv-python>=4.8,<5",
+    "fastapi>=0.115",
+    # Declared explicitly even though FastAPI pulls it in. `backend/errors.py`
+    # imports starlette directly, and depending on somebody else's transitive
+    # dependency is how a working install breaks on their minor release.
+    "starlette>=0.37",
+    "pydantic-settings>=2.4,<3",
+]
+
+[project.optional-dependencies]
+# Both model backends are imported INSIDE `ModelRegistry._build_*_backend`, not
+# at module scope, and that is a design decision rather than an accident: a CPU
+# deployment serving ONNX must not be made to install a multi-gigabyte CUDA
+# wheel, and the API process must not import torch at all. Promoting either of
+# these to `dependencies` would silently undo that.
+torch = ["torch>=2.4"]
+onnx = ["onnxruntime>=1.18"]
+# psutil is test-only: it measures peak RSS in the frame-extraction suite and
+# has no business in a production image.
+#
+# pillow is test-only for a subtler reason. It is not a fallback decoder and must
+# never become one — the platform has exactly one image decode path on purpose.
+# It is here as an *independent second opinion*: the decode-determinism suite
+# decodes the same JPEG with OpenCV's libjpeg-turbo and Pillow's and asserts they
+# agree, which is how R6's "different libjpeg builds disagree" hypothesis is kept
+# under measurement rather than assumed. A second decoder in the test tree is the
+# only way to test that claim at all.
+#
+# httpx2 is test-only: `fastapi.testclient.TestClient` (used by test_backend.py
+# and test_startup_alignment.py) requires it — `starlette.testclient` tries
+# `httpx2` first and falls back to the deprecated `httpx` with a warning only if
+# `httpx2` is absent. Discovered during B24 (N5): it was never declared, and
+# every test run before N5 passed only because the ad hoc development machine
+# happened to have it installed for unrelated reasons — the same class of gap
+# `pyproject.toml`'s own history (see the comment above `dependencies`) already
+# describes once, recurring here for a test-only, AST-invisible import (`import_
+# audit.py` scans the seven shipping packages, not `tests/`, so this class of gap
+# is structurally outside what the R7 suite can catch). See REPRODUCIBILITY_AUDIT.md.
+dev = ["pytest>=8", "ruff>=0.6", "psutil>=5.9", "pillow>=10", "httpx2"]
+
+[tool.setuptools]
+# All seven shipping packages. This said `["contracts"]` through S8 Batch 4,
+# which was correct at S0 and quietly wrong from S1 onward — an install would
+# have shipped the contracts and none of the code that uses them. Tests run from
+# the source tree, so nothing ever exercised it.
+#
+# The `dfp.*` namespace move is still pending and still motivated: a top-level
+# `datasets/` would shadow the HuggingFace package of that name on sys.path,
+# exactly as `queue/` shadowed the stdlib module. Dataset code lives at
+# `evaluation.dataset` for that reason and no top-level `datasets/` exists.
+packages = [
+    "backend",
+    "contracts",
+    "evaluation",
+    "inference",
+    "jobqueue",
+    "storage",
+    "workers",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv]
+# Pins the two packages that feed a fingerprint() call (DecodeEnvironment.identity
+# and the numpy float-repr path in contracts.version._canonical) to the exact
+# versions the shipped .d.=a97ccb68 / .f.=e629642c identities were computed
+# against. A naive first `uv lock` would otherwise resolve "opencv-python>=4.8,<5"
+# to whatever is newest on PyPI today, silently moving .d. under an
+# "identity-neutral" banner. See docs/B24_N5_DESIGN.md §4.1 and
+# docs/B24_R2_DESIGN.md §7.2. Do not remove without a deliberate identity-moving
+# batch (the deferred decode-environment-completeness "pass 2" batch).
+override-dependencies = ["opencv-python==4.8.1.78", "numpy==1.26.4"]

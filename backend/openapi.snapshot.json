@@ -1,0 +1,657 @@
+{
+  "fingerprint": "f9610c4df51cd431eb69991fc4012fe7c03a81382e859ef76aa55d9ae3d0c92a",
+  "signature": {
+    "components": {
+      "AbstainReason": {
+        "enum": [
+          "branch_error",
+          "branch_not_applicable",
+          "excessive_compression",
+          "face_too_small",
+          "no_face_detected",
+          "no_provenance_data",
+          "quality_below_floor",
+          "score_in_abstention_band",
+          "too_few_frames"
+        ]
+      },
+      "AnalysisOptions": {
+        "additionalProperties": false,
+        "properties": {
+          "explain": "boolean",
+          "max_frames": "integer|null"
+        },
+        "required": []
+      },
+      "AnalyzeAcceptedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "estimated_wait_s": "integer|null",
+          "events_url": "string",
+          "job_id": "string(uuid)",
+          "queue_position": "integer|null",
+          "result_url": "string",
+          "state": "$JobState",
+          "status_url": "string"
+        },
+        "required": [
+          "events_url",
+          "job_id",
+          "result_url",
+          "status_url"
+        ]
+      },
+      "AnalyzeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "options": "$AnalysisOptions",
+          "upload_id": "string"
+        },
+        "required": [
+          "upload_id"
+        ]
+      },
+      "ApiError": {
+        "additionalProperties": false,
+        "properties": {
+          "code": "$ErrorCode",
+          "detail": "null|string",
+          "field": "null|string",
+          "job_id": "null|string(uuid)",
+          "message": "string",
+          "retry_after_s": "integer|null",
+          "retryable": "boolean"
+        },
+        "required": [
+          "code",
+          "message",
+          "retryable"
+        ]
+      },
+      "Artifact": {
+        "additionalProperties": false,
+        "properties": {
+          "caption": "string",
+          "expires_at": "null|string(date-time)",
+          "height": "integer|null",
+          "kind": "$ArtifactKind",
+          "mime": "string",
+          "ref": "string",
+          "width": "integer|null"
+        },
+        "required": [
+          "caption",
+          "kind",
+          "mime",
+          "ref"
+        ]
+      },
+      "ArtifactKind": {
+        "enum": [
+          "frame_curve",
+          "gradcam",
+          "spectrum",
+          "thumbnail"
+        ]
+      },
+      "BoundingBox": {
+        "additionalProperties": false,
+        "properties": {
+          "height": "integer",
+          "width": "integer",
+          "x": "integer",
+          "y": "integer"
+        },
+        "required": [
+          "height",
+          "width",
+          "x",
+          "y"
+        ]
+      },
+      "BranchHealth": {
+        "additionalProperties": false,
+        "properties": {
+          "id": "string",
+          "loaded": "boolean",
+          "version": "null|string"
+        },
+        "required": [
+          "id",
+          "loaded"
+        ]
+      },
+      "BranchId": {
+        "enum": [
+          "A",
+          "B",
+          "P"
+        ]
+      },
+      "BranchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "abstain_reason": "$AbstainReason|null",
+          "id": "$BranchId",
+          "logit": "null|number",
+          "name": "string",
+          "p": "null|number",
+          "status": "$BranchStatus",
+          "version": "null|string",
+          "weight": "null|number"
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ]
+      },
+      "BranchStatus": {
+        "enum": [
+          "abstained",
+          "scored",
+          "unavailable"
+        ]
+      },
+      "C2paReport": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": "null|string(date-time)",
+          "claim_generator": "null|string",
+          "edits_declared": "array<string>",
+          "present": "boolean",
+          "signature_valid": "boolean|null",
+          "signer": "null|string"
+        },
+        "required": [
+          "present"
+        ]
+      },
+      "CreateUploadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content_type": "string",
+          "filename_hint": "null|string",
+          "media_kind": "$MediaKind",
+          "sha256": "string",
+          "size_bytes": "integer"
+        },
+        "required": [
+          "content_type",
+          "media_kind",
+          "sha256",
+          "size_bytes"
+        ]
+      },
+      "CreateUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cache_hit": "boolean",
+          "cached_result": "$EvidenceBundle|null",
+          "upload": "$PresignedUpload|null",
+          "upload_id": "string"
+        },
+        "required": [
+          "cache_hit",
+          "upload_id"
+        ]
+      },
+      "ErrorCode": {
+        "enum": [
+          "checksum_mismatch",
+          "decode_failed",
+          "decode_timeout",
+          "duration_too_long",
+          "file_empty",
+          "file_too_large",
+          "internal_error",
+          "invalid_request",
+          "job_not_found",
+          "model_unavailable",
+          "rate_limited",
+          "resolution_too_large",
+          "resource_exhausted",
+          "result_not_ready",
+          "unsupported_codec",
+          "unsupported_media_type",
+          "upload_expired",
+          "upload_incomplete",
+          "upload_not_found"
+        ]
+      },
+      "ErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": "$ApiError"
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "EvidenceBundle": {
+        "additionalProperties": false,
+        "properties": {
+          "abstain_reason": "$AbstainReason|null",
+          "artifacts": "array<$Artifact>",
+          "branches": "array<$BranchResult>",
+          "created_at": "string(date-time)",
+          "disagreement": "number",
+          "faces": "array<$FaceTrack>",
+          "interval": "array<any>|null",
+          "job_id": "string(uuid)",
+          "media": "$MediaInfo",
+          "model": "$ModelInfo",
+          "p_fake": "null|number",
+          "provenance": "$ProvenanceReport",
+          "quality": "$QualityReport",
+          "schema_version": "string",
+          "threshold": "$ThresholdInfo",
+          "timing": "$Timing",
+          "verdict": "$Verdict",
+          "video": "$VideoAnalysis|null"
+        },
+        "required": [
+          "branches",
+          "created_at",
+          "job_id",
+          "media",
+          "model",
+          "provenance",
+          "quality",
+          "threshold",
+          "timing",
+          "verdict"
+        ]
+      },
+      "ExifReport": {
+        "additionalProperties": false,
+        "properties": {
+          "anomalies": "array<string>",
+          "camera_make": "null|string",
+          "camera_model": "null|string",
+          "coherent": "boolean|null",
+          "present": "boolean",
+          "software": "null|string"
+        },
+        "required": [
+          "present"
+        ]
+      },
+      "FaceTrack": {
+        "additionalProperties": false,
+        "properties": {
+          "bbox": "$BoundingBox",
+          "frames_seen": "integer",
+          "landmarks": "array<array<any>>",
+          "p_fake": "null|number",
+          "status": "$AbstainReason|null",
+          "track_id": "integer"
+        },
+        "required": [
+          "bbox",
+          "frames_seen",
+          "track_id"
+        ]
+      },
+      "FrameScore": {
+        "additionalProperties": false,
+        "properties": {
+          "frame_idx": "integer",
+          "p": "number",
+          "t_ms": "integer"
+        },
+        "required": [
+          "frame_idx",
+          "p",
+          "t_ms"
+        ]
+      },
+      "HealthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "branches": "array<$BranchHealth>",
+          "device": "string",
+          "model_version": "null|string",
+          "queue_depth": "map<integer>",
+          "status": "string",
+          "uptime_s": "integer"
+        },
+        "required": [
+          "status",
+          "uptime_s"
+        ]
+      },
+      "JobProgress": {
+        "additionalProperties": false,
+        "properties": {
+          "message": "null|string",
+          "percent": "integer",
+          "stage": "$JobStage"
+        },
+        "required": [
+          "percent",
+          "stage"
+        ]
+      },
+      "JobStage": {
+        "enum": [
+          "decoding",
+          "detecting",
+          "explaining",
+          "finalizing",
+          "fusing",
+          "sampling",
+          "scoring",
+          "temporal",
+          "tracking",
+          "validating"
+        ]
+      },
+      "JobState": {
+        "enum": [
+          "cancelled",
+          "failed",
+          "queued",
+          "running",
+          "succeeded"
+        ]
+      },
+      "JobStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": "integer",
+          "error": "$ApiError|null",
+          "finished_at": "null|string(date-time)",
+          "job_id": "string(uuid)",
+          "progress": "$JobProgress|null",
+          "result_url": "null|string",
+          "started_at": "null|string(date-time)",
+          "state": "$JobState",
+          "submitted_at": "string(date-time)"
+        },
+        "required": [
+          "job_id",
+          "state",
+          "submitted_at"
+        ]
+      },
+      "MediaInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_s": "null|number",
+          "fps": "null|number",
+          "frame_count": "integer|null",
+          "height": "integer",
+          "kind": "$MediaKind",
+          "mime": "string",
+          "sha256": "string",
+          "size_bytes": "integer",
+          "width": "integer"
+        },
+        "required": [
+          "height",
+          "kind",
+          "mime",
+          "sha256",
+          "size_bytes",
+          "width"
+        ]
+      },
+      "MediaKind": {
+        "enum": [
+          "image",
+          "video"
+        ]
+      },
+      "ModelInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "branch_versions": "map<string>",
+          "calibration_temp": "null|number",
+          "git_sha": "null|string",
+          "version": "string"
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "PresignedUpload": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": "string(date-time)",
+          "headers": "map<string>",
+          "method": "$UploadMethod",
+          "url": "string"
+        },
+        "required": [
+          "expires_at",
+          "url"
+        ]
+      },
+      "ProvenanceFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": "string",
+          "label": "string",
+          "supports_authenticity": "boolean"
+        },
+        "required": [
+          "detail",
+          "label",
+          "supports_authenticity"
+        ]
+      },
+      "ProvenanceReport": {
+        "additionalProperties": false,
+        "properties": {
+          "authenticity_credit": "number",
+          "c2pa": "$C2paReport",
+          "exif": "$ExifReport",
+          "findings": "array<$ProvenanceFinding>"
+        },
+        "required": [
+          "authenticity_credit",
+          "c2pa",
+          "exif"
+        ]
+      },
+      "QualityReport": {
+        "additionalProperties": false,
+        "properties": {
+          "blur_score": "null|number",
+          "face_px": "integer|null",
+          "gate_passed": "boolean",
+          "gate_reason": "$AbstainReason|null",
+          "jpeg_q_est": "null|number",
+          "resolution_class": "$ResolutionClass"
+        },
+        "required": [
+          "gate_passed",
+          "resolution_class"
+        ]
+      },
+      "ResolutionClass": {
+        "enum": [
+          "high",
+          "low",
+          "standard",
+          "tiny"
+        ]
+      },
+      "SuspectSegment": {
+        "additionalProperties": false,
+        "properties": {
+          "end_ms": "integer",
+          "frame_count": "integer",
+          "mean_p": "number",
+          "peak_p": "number",
+          "start_ms": "integer"
+        },
+        "required": [
+          "end_ms",
+          "frame_count",
+          "mean_p",
+          "peak_p",
+          "start_ms"
+        ]
+      },
+      "ThresholdInfo": {
+        "additionalProperties": false,
+        "properties": {
+          "band_hi": "number",
+          "band_lo": "number",
+          "target_fpr": "number",
+          "value": "number"
+        },
+        "required": [
+          "band_hi",
+          "band_lo",
+          "target_fpr",
+          "value"
+        ]
+      },
+      "Timing": {
+        "additionalProperties": false,
+        "properties": {
+          "explain_ms": "integer",
+          "inference_ms": "integer",
+          "preprocess_ms": "integer",
+          "queued_ms": "integer",
+          "total_ms": "integer"
+        },
+        "required": [
+          "inference_ms",
+          "preprocess_ms",
+          "queued_ms",
+          "total_ms"
+        ]
+      },
+      "TopFrame": {
+        "additionalProperties": false,
+        "properties": {
+          "frame_idx": "integer",
+          "gradcam_ref": "null|string",
+          "p": "number",
+          "t_ms": "integer",
+          "thumbnail_ref": "null|string",
+          "track_id": "integer|null"
+        },
+        "required": [
+          "frame_idx",
+          "p",
+          "t_ms"
+        ]
+      },
+      "UploadMethod": {
+        "enum": [
+          "POST",
+          "PUT"
+        ]
+      },
+      "Verdict": {
+        "enum": [
+          "authentic",
+          "insufficient_evidence",
+          "manipulated"
+        ]
+      },
+      "VideoAnalysis": {
+        "additionalProperties": false,
+        "properties": {
+          "frame_scores": "array<$FrameScore>",
+          "frames_sampled": "integer",
+          "frames_scored": "integer",
+          "pooling": "string",
+          "sampling": "string",
+          "segments": "array<$SuspectSegment>",
+          "top_frames": "array<$TopFrame>"
+        },
+        "required": [
+          "frames_sampled",
+          "frames_scored"
+        ]
+      }
+    },
+    "contract_version": "1.0.0",
+    "openapi": "3.1.0",
+    "paths": {
+      "GET /health": {
+        "operation_id": "health_health_get",
+        "parameters": [],
+        "request_body": null,
+        "responses": {
+          "200": "$HealthResponse",
+          "503": "$HealthResponse"
+        }
+      },
+      "GET /jobs/{job_id}": {
+        "operation_id": "get_job_jobs__job_id__get",
+        "parameters": [
+          "path:job_id:required"
+        ],
+        "request_body": null,
+        "responses": {
+          "200": "$JobStatus",
+          "400": "none",
+          "404": "none",
+          "500": "none"
+        }
+      },
+      "GET /results/{job_id}": {
+        "operation_id": "get_result_results__job_id__get",
+        "parameters": [
+          "path:job_id:required"
+        ],
+        "request_body": null,
+        "responses": {
+          "200": "$EvidenceBundle",
+          "400": "none",
+          "404": "none",
+          "409": "none",
+          "422": "none",
+          "500": "none"
+        }
+      },
+      "POST /analyze": {
+        "operation_id": "analyze_analyze_post",
+        "parameters": [],
+        "request_body": "$AnalyzeRequest",
+        "responses": {
+          "202": "$AnalyzeAcceptedResponse",
+          "400": "none",
+          "404": "none",
+          "409": "none",
+          "500": "none"
+        }
+      },
+      "POST /uploads": {
+        "operation_id": "create_upload_uploads_post",
+        "parameters": [],
+        "request_body": "$CreateUploadRequest",
+        "responses": {
+          "200": "$CreateUploadResponse",
+          "400": "none",
+          "413": "none",
+          "415": "none",
+          "500": "none"
+        }
+      },
+      "PUT /uploads/{upload_id}": {
+        "operation_id": "receive_upload_uploads__upload_id__put",
+        "parameters": [
+          "path:upload_id:required",
+          "query:signature:optional"
+        ],
+        "request_body": null,
+        "responses": {
+          "204": "none",
+          "400": "none",
+          "404": "none",
+          "410": "none",
+          "413": "none",
+          "500": "none"
+        }
+      }
+    }
+  }
+}

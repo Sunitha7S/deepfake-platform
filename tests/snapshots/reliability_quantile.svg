@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="420" viewBox="0 0 440 420" role="img" aria-label="Reliability (quantile bins)">
+<rect width="440" height="420" fill="#ffffff"/>
+<text x="16" y="22" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="13" font-weight="600" fill="#1b1f24">Reliability (quantile bins)</text>
+<text x="16" y="36" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#8a9199">n=600  ECE 0.1064  MCE 0.1586  quantile bins</text>
+<line x1="52.00" y1="352.00" x2="424.00" y2="352.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="355.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.00</text>
+<line x1="52.00" y1="279.00" x2="424.00" y2="279.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="282.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.25</text>
+<line x1="52.00" y1="206.00" x2="424.00" y2="206.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="209.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.50</text>
+<line x1="52.00" y1="133.00" x2="424.00" y2="133.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="136.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.75</text>
+<line x1="52.00" y1="60.00" x2="424.00" y2="60.00" stroke="#e3e6e9" stroke-width="1"/>
+<text x="44" y="63.50" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">1.00</text>
+<text x="52.00" y="366.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.00</text>
+<text x="145.00" y="366.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.25</text>
+<text x="238.00" y="366.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.50</text>
+<text x="331.00" y="366.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">0.75</text>
+<text x="424.00" y="366.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">1.00</text>
+<rect x="52" y="60" width="372.00" height="292.00" fill="none" stroke="#8a9199" stroke-width="1"/>
+<text x="238.00" y="410" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#1b1f24">mean predicted probability</text>
+<text x="14" y="206.00" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#1b1f24" transform="rotate(-90 14 206.00)">observed frequency</text>
+<line x1="52.00" y1="352.00" x2="424.00" y2="60.00" stroke="#b0b6bc" stroke-width="1" stroke-dasharray="4 3"/>
+<line x1="53.48" y1="350.83" x2="53.48" y2="328.64" stroke="#2f6f9f" stroke-width="6" opacity="0.35"/>
+<circle cx="53.48" cy="328.64" r="3.5" fill="#2f6f9f"/>
+<line x1="67.40" y1="339.91" x2="67.40" y2="293.60" stroke="#2f6f9f" stroke-width="6" opacity="0.35"/>
+<circle cx="67.40" cy="293.60" r="3.5" fill="#2f6f9f"/>
+<line x1="109.50" y1="306.87" x2="109.50" y2="262.45" stroke="#2f6f9f" stroke-width="6" opacity="0.35"/>
+<circle cx="109.50" cy="262.45" r="3.5" fill="#2f6f9f"/>
+<line x1="188.79" y1="244.63" x2="188.79" y2="231.31" stroke="#2f6f9f" stroke-width="6" opacity="0.35"/>
+<circle cx="188.79" cy="231.31" r="3.5" fill="#2f6f9f"/>
+<line x1="287.21" y1="167.37" x2="287.21" y2="188.48" stroke="#c25a30" stroke-width="6" opacity="0.35"/>
+<circle cx="287.21" cy="188.48" r="3.5" fill="#c25a30"/>
+<line x1="366.50" y1="105.13" x2="366.50" y2="149.55" stroke="#c25a30" stroke-width="6" opacity="0.35"/>
+<circle cx="366.50" cy="149.55" r="3.5" fill="#c25a30"/>
+<line x1="408.60" y1="72.09" x2="408.60" y2="110.61" stroke="#c25a30" stroke-width="6" opacity="0.35"/>
+<circle cx="408.60" cy="110.61" r="3.5" fill="#c25a30"/>
+<line x1="422.52" y1="61.17" x2="422.52" y2="79.47" stroke="#c25a30" stroke-width="6" opacity="0.35"/>
+<circle cx="422.52" cy="79.47" r="3.5" fill="#c25a30"/>
+<polyline points="53.48,328.64 67.40,293.60 109.50,262.45 188.79,231.31 287.21,188.48 366.50,149.55 408.60,110.61 422.52,79.47" fill="none" stroke="#1b1f24" stroke-width="1.2" opacity="0.55"/>
+<text x="52" y="382.00" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#8a9199">samples per bin (max 75)</text>
+<rect x="52.00" y="386.00" width="4.14" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="57.14" y="386.00" width="24.46" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="82.60" y="386.00" width="59.79" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="143.39" y="386.00" width="93.61" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="238.00" y="386.00" width="93.61" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="332.61" y="386.00" width="59.79" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="393.40" y="386.00" width="24.46" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="418.86" y="386.00" width="4.14" height="16.00" fill="#8a9199" opacity="0.55"/>
+<rect x="52.00" y="45.00" width="9" height="9" fill="#c25a30" opacity="0.85"/>
+<text x="65.00" y="52.00" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#1b1f24">overconfident</text>
+<rect x="146.80" y="45.00" width="9" height="9" fill="#2f6f9f" opacity="0.85"/>
+<text x="159.80" y="52.00" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="9" fill="#1b1f24">underconfident</text>
+</svg>
