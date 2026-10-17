@@ -1,4 +1,13 @@
-# Decode identity completeness — resolving R27 (Batch 20)
+# Decode identity completeness — resolving R27 (Batch 20) and R30 (Batch 26)
+
+> **Batch 26 (R30) note:** the image-path residual this document forward-
+> referenced below is now closed — see **"Image decode identity completeness
+> — resolving R30 + D8/D9 (Batch 26)"** at the end of this document. N8 (the
+> video-shaped decode-id string applied to the image path) stays **CLOSED,
+> accepted architectural cost** (decided in `docs/B24_R2_DESIGN.md` §4); Batch
+> 26 is the anticipated event that enlarges that union symmetrically, not a
+> new decision. D10 remains open — no fix exists, a binary hash would be
+> needed. See `docs/R30_BUNDLE_DESIGN.md`.
 
 > **Batch 23 (R29) note:** the model-identity `.f.` segment became a composite
 > (face + video selection policy) — the `.d.` decode identity this document
@@ -359,3 +368,96 @@ the current behaviour so a future change is loud.
 
 R27 can be marked **closed** in the audit with the residual list attached, the
 same way R12 was closed with its "two decoders still disagree" caveat.
+
+---
+
+# Image decode identity completeness — resolving R30 + D8/D9 (Batch 26)
+
+**Design:** `docs/R30_BUNDLE_DESIGN.md` (a complete source re-derivation,
+2026-09-17, re-validating this finding after N5, R31 and OR1-b landed).
+Inputs: `docs/B24_DESIGN.md`, `docs/B24_ADVERSARIAL_REVIEW.md`,
+`docs/B24_R2_DESIGN.md`.
+
+**Outcome: R30 closed. D9 folds into it and closes. D8 folds in only
+PARTIALLY** — its image (libjpeg-turbo SIMD) half closes, its video
+(libswscale SIMD) half stays open, unaddressed, out of this batch's scope.
+**D10 stays open (no fix exists).** `decode_identity()` covered OpenCV, the video backend, and (since
+Batch 20) every FFmpeg library the video path links — but the *image* path's
+actual codecs (libjpeg-turbo, libpng, libwebp) were proxied only by
+`cv2.__version__`, which drops the wheel's 4th digit (D9) and says nothing
+about a system-linked build's codec libraries at all. This is the image
+analogue of R27.
+
+**Unlike R27, this is a structural-completeness fix, not a response to a
+measured divergence.** The R30 design (§1) cross-checked OpenCV against an
+independent decode stack (Pillow) spanning a major libjpeg-turbo version gap
+(2.1.3 → 3.1.4), a different libpng, a different libwebp, and stock zlib vs.
+zlib-ng — every accepted MIME type (JPEG/PNG/WebP) decoded bit-for-bit
+identically. The identity grows anyway, on the same over-sensitive-by-design
+principle Batch 9 already established: a false cache miss costs compute, a
+false hit costs a wrong verdict, so the tie breaks toward the coarser,
+more-separating signal.
+
+## What this batch does
+
+New `image_codec_version` (libjpeg-turbo / libpng / libwebp, captured
+verbatim from `getBuildInformation()`'s "Media I/O" block — no component
+parsing) and `image_codec_simd` (libjpeg-turbo's SIMD flag) fields on
+`DecodeEnvironment` (`inference/decode_env.py`), added via a new sibling
+function `_image_codec_facts()` / `_parse_image_codecs()` — `_build_facts()`
+and its five other call sites are untouched. `image_codec_version` joins
+`identity` (the cache key); `image_codec_simd` goes to `digest` only
+(performance-only — OpenCV's `JDCT_ISLOW` is bit-exact across libjpeg-turbo's
+C and SIMD paths, the `cpu_dispatch` precedent). **zlib is recorded
+nowhere** — PNG's `inflate()` step is RFC-1951-deterministic, measured
+identical between stock zlib and zlib-ng.
+
+`STUB_ENGINE_VERSION`'s `.d.` segment moves `a97ccb68` → `c9d4025c` (one
+cache generation spanning both media-kind namespaces — N8, accepted
+architectural cost, exercised again as predicted). **No** `CONTRACT_VERSION`
+/ `RUN_SCHEMA_VERSION` / `CALIBRATION_WITNESS_VERSION` (which had already
+moved to 1.3.0 under R31, independently re-verified unaffected — the
+witness digest treats `decode_identity` as an opaque string regardless of
+how it was computed) / `LOCK_VERSION` / OpenAPI change.
+
+## C2 (parser robustness) — ratified, not deferred again
+
+The R30 design's one open item from `docs/B24_R2_DESIGN.md` §8 — whether the
+parser holds up on a non-Windows / non-wheel build — is ratified rather than
+carried forward: the parser follows `_build_facts()`'s own defensive
+contract (a missing diagnostic returns `None`/`"unknown"` rather than
+raising), captures every `(ver ...)` value verbatim regardless of internal
+token count, and the one residual case (a library present but reported with
+no `(ver ...)` suffix at all — unprecedented on any build observed so far)
+is recorded as a new finding, **D12** (not D11 — this document's own threat
+model already used D11 for a different, pre-existing finding — the VFR
+`frame_count` estimation residual, line 228 above), rather than spuriously "fixed" against
+a hypothetical counter-example.
+
+Re-runnable proof and named doubles: `tests/test_image_decode_identity.py`
+(28 tests) — `LegacyOpencvProxyIdentity` reproduces the pre-Batch-26 5-key
+identity (the `LegacyAvcodecOnlyIdentity` pattern from Batch 20's own suite);
+`mismatched_image_codec` builds two `DecodeEnvironment`s differing in one
+codec's version string.
+
+## Migration
+
+Identical shape to Batch 20/23: one `.d.` move, one cache generation
+(image + video namespaces, N8), R34 deploy coordination applies (mitigated —
+OR1 + OR1-b's composition-root path both fail closed on a stale literal),
+rollback is a straight revert (`inference/decode_env.py` + the
+`backend/config.py` literal), no benchmark/witness schema work (both store
+`decode_identity` as an opaque string, unaffected by what produced it), no
+OpenAPI/`schema_out`/`fixtures_out` change (none of them carry a `.d.`
+literal). Full detail: `docs/R30_BUNDLE_DESIGN.md` §6.
+
+## Residuals after this batch
+
+- **D8, video half** — libswscale's SIMD path is still not in the identity.
+  Unchanged by this batch, which touched only the image codec surface;
+  Batch 8 E6 never measured it. Still open.
+- **D10** — same version string, different build. Still open; a binary hash
+  of the linked codec libraries would be needed, out of scope.
+- **D12** (new) — the parser omits a codec whose `getBuildInformation()` line
+  lacks a `(ver ...)` suffix, silently rather than raising. No known
+  real-world occurrence; recorded per the C2 ratification above.

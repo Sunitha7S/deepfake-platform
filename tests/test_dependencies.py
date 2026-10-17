@@ -299,14 +299,17 @@ def test_a_lockfile_exists_and_matches_pyproject():
 
 
 def test_the_lockfile_pins_the_versions_the_shipped_identity_was_computed_against():
-    """PA2: opencv-python/numpy resolve to exactly what .d.=a97ccb68 assumes."""
+    """PA2: opencv-python/numpy resolve to exactly what .d.=c9d4025c assumes
+    (R30, Batch 26 — was a97ccb68 through Batch 25; the pinned *versions* are
+    unchanged, only the decode-identity value they feed is different now that
+    it also covers the image codec libraries)."""
     import tomllib
 
     lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
     packages = {p["name"]: p["version"] for p in lock["package"]}
     assert packages.get("opencv-python") == "4.8.1.78", (
         f"opencv-python locked to {packages.get('opencv-python')!r}, not the "
-        "version the shipped .d.=a97ccb68 was computed against"
+        "version the shipped .d.=c9d4025c was computed against"
     )
     assert packages.get("numpy") == "1.26.4", (
         f"numpy locked to {packages.get('numpy')!r}, not the version the "
@@ -367,10 +370,16 @@ def test_the_python_version_pin_matches_the_shipped_identity_box():
 
 
 def test_decode_identity_is_unchanged():
-    """NM1."""
+    """NM1. Pinned to N5's shipped value through Batch 25. R30 (Batch 26)
+    deliberately moves this — image codec libraries joined the identity — so
+    the pin moves with it: a97ccb68 -> c9d4025c. See
+    docs/R30_BUNDLE_DESIGN.md. N5 itself (the lockfile) still contributes
+    nothing to this value changing; the *inputs* it pins (opencv-python
+    4.8.1.78, numpy 1.26.4) are exactly what c9d4025c was computed against,
+    same as a97ccb68 was."""
     from inference.decode_env import decode_identity
 
-    assert decode_identity() == "a97ccb68"
+    assert decode_identity() == "c9d4025c"
 
 
 def test_stub_engine_version_is_unchanged():
@@ -378,7 +387,7 @@ def test_stub_engine_version_is_unchanged():
     from backend.config import STUB_ENGINE_VERSION
 
     assert STUB_ENGINE_VERSION == (
-        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.a97ccb68"
+        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
     )
 
 

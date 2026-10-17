@@ -177,6 +177,8 @@ class DecodeEnvironment:
     python_version: str
     cpu_baseline: str
     cpu_dispatch: str
+    image_codec_version: str | None
+    image_codec_simd: str
 
     @property
     def identity(self) -> str:
@@ -207,6 +209,15 @@ class DecodeEnvironment:
           the conservative side: for a *cache* key a false miss costs compute
           and a false hit costs a wrong verdict, so the two errors are not
           symmetric and the tie breaks toward missing.
+        * ``image_codec_version`` — **R30.** libjpeg-turbo / libpng / libwebp,
+          the image-decode analogue of ``ffmpeg_version``. Measured (R30
+          design, `docs/R30_BUNDLE_DESIGN.md` §1.4/§2, and the earlier
+          cross-build study in `docs/B24_R2_DESIGN.md` §1) to be pixel-neutral
+          for every accepted MIME type across a major libjpeg-turbo version
+          gap, a libpng change, and stock zlib vs. zlib-ng — included anyway
+          as the coarsest reliable signal, on the same over-sensitive-by-design
+          reasoning as ``ffmpeg_version``: a false miss costs compute, a false
+          hit costs a wrong verdict.
 
         OUT, because including them would fragment the cache on things measured
         *not* to change a pixel:
@@ -219,9 +230,20 @@ class DecodeEnvironment:
           :attr:`digest` for forensics, and pinned by a test, so if a future
           build does diverge the negative result fails loudly instead of
           silently becoming wrong.
+        * ``image_codec_simd`` — **R30.** libjpeg-turbo's SIMD flag. OpenCV's
+          JPEG loader uses ``JDCT_ISLOW`` (accurate integer IDCT), which
+          libjpeg-turbo holds bit-identical between its C and SIMD paths;
+          measured via a cross-build check (SIMD-off OpenCV vs. SIMD-on
+          Pillow, three JPEGs, identical). Performance-only, like
+          ``cpu_dispatch`` — same treatment, same reasoning.
         * ``backend_source`` — how the backend was chosen. Provenance; the same
           backend decodes the same whether it was named or inherited.
         * ``python_version`` — does not touch a decoded pixel.
+
+        zlib is not recorded at all: its only role on the image path is
+        ``inflate()`` for PNG, which is RFC-1951-deterministic — measured
+        identical between stock zlib and zlib-ng — so it carries no pixel risk
+        and no forensic value the libpng version does not already cover.
         """
         return fingerprint(
             {
@@ -230,6 +252,7 @@ class DecodeEnvironment:
                 "ffmpeg": self.ffmpeg_version,
                 "system": self.platform_system,
                 "machine": self.platform_machine,
+                "image_codec": self.image_codec_version,
             }
         )
 
@@ -237,11 +260,11 @@ class DecodeEnvironment:
     def digest(self) -> str:
         """Short hash of the **whole** environment. The forensic digest.
 
-        Strictly finer than :attr:`identity`: it adds the CPU fields, so two
-        environments can share an identity and differ here. That is the point —
-        this is what a run record carries so a discrepancy can be reconstructed,
-        and it must not be used as a cache key or a fleet of mixed CPUs will
-        never hit.
+        Strictly finer than :attr:`identity`: it adds the CPU fields and (R30)
+        ``image_codec_simd``, so two environments can share an identity and
+        differ here. That is the point — this is what a run record carries so
+        a discrepancy can be reconstructed, and it must not be used as a cache
+        key or a fleet of mixed CPUs will never hit.
 
         Equal digests mean equal pixels. The converse is not claimed: two
         environments with different digests may well decode identically. This is
@@ -254,6 +277,7 @@ class DecodeEnvironment:
                 "identity": self.identity,
                 "cpu_baseline": self.cpu_baseline,
                 "cpu_dispatch": self.cpu_dispatch,
+                "image_codec_simd": self.image_codec_simd,
             }
         )
 
@@ -268,6 +292,8 @@ class DecodeEnvironment:
             "python_version": self.python_version,
             "cpu_baseline": self.cpu_baseline,
             "cpu_dispatch": self.cpu_dispatch,
+            "image_codec_version": self.image_codec_version,
+            "image_codec_simd": self.image_codec_simd,
             "identity": self.identity,
             "digest": self.digest,
         }
@@ -277,6 +303,8 @@ class DecodeEnvironment:
             f"decode {self.identity}/{self.digest}: OpenCV {self.opencv_version} via "
             f"{self.video_backend} ({self.backend_source}), "
             f"ffmpeg {self.ffmpeg_version or 'unreported'}, "
+            f"image codecs {self.image_codec_version or 'unreported'} "
+            f"(SIMD {self.image_codec_simd}), "
             f"{self.platform_system}/{self.platform_machine}, "
             f"CPU {self.cpu_baseline} + [{self.cpu_dispatch}]"
         )
@@ -300,6 +328,8 @@ class DecodeEnvironment:
             "python_version",
             "cpu_baseline",
             "cpu_dispatch",
+            "image_codec_version",
+            "image_codec_simd",
         ):
             mine, theirs = getattr(self, field), getattr(other, field)
             if mine != theirs:
@@ -326,6 +356,47 @@ _VIDEO_FFMPEG_LIBS: tuple[str, ...] = ("avcodec", "avformat", "avutil", "swscale
 _AVLIB_RE = re.compile(
     r"^\s*(" + "|".join(_VIDEO_FFMPEG_LIBS) + r"):\s*YES\s*\(([^)]+)\)", re.M
 )
+
+# R30 (`docs/R30_BUNDLE_DESIGN.md`): the image-decode analogue of the FFmpeg
+# block above. ``getBuildInformation()`` lists these under "Media I/O", each as
+# ``<LIB>:  build[-variant] (ver <value>)``. Captured verbatim inside the
+# parentheses — no component parsing (a WebP "encoder: 0x020f" or a
+# hypothetical "decoder: 0x0209, encoder: 0x020f" is stored as one opaque
+# string) — because the format varies across wheels/distros and the value is
+# a change-detector input, not something this codebase interprets.
+#
+# zlib is deliberately absent: PNG's ``inflate()`` step is RFC-1951-
+# deterministic, measured identical between stock zlib and zlib-ng (R30 §2),
+# so it carries no pixel risk. TIFF / JPEG 2000 / OpenEXR are absent because
+# they are outside ``ALLOWED_IMAGE_MIME`` — unreachable, not merely unlisted.
+_IMAGE_CODEC_LIBS: tuple[str, ...] = ("JPEG", "PNG", "WEBP")
+_IMAGE_CODEC_RE = re.compile(
+    r"^\s*(" + "|".join(_IMAGE_CODEC_LIBS) + r"):\s*\S+\s*\(ver\s+([^)]+)\)", re.M
+)
+# libjpeg-turbo's SIMD flag, nested under the JPEG line. Digest-only (R30 §2):
+# OpenCV's JDCT_ISLOW is bit-exact across C and SIMD, so this is a
+# performance fact, not a pixel one — the `cpu_dispatch` precedent.
+_SIMD_SUPPORT_RE = re.compile(r"^\s*SIMD Support:\s*(\S+)", re.M)
+
+
+def _parse_image_codecs(info: str) -> tuple[str | None, str]:
+    """``(image_codec_version, image_codec_simd)`` from a build-info string.
+
+    A pure function, deliberately not ``lru_cache``d, so a test can drive it
+    directly with a synthetic string (R30's PA7 — the C2 parser-robustness
+    item ratified in `docs/R30_BUNDLE_DESIGN.md` §2.2). Defensive like
+    :func:`_build_facts`: a library missing from the string is simply absent
+    from the joined result rather than raising, since a missing diagnostic
+    must not be able to stop a decode.
+    """
+    found = {lib: ver.strip() for lib, ver in _IMAGE_CODEC_RE.findall(info)}
+    codecs = (
+        " / ".join(f"{lib} {found[lib]}" for lib in _IMAGE_CODEC_LIBS if lib in found)
+        or None
+    )
+    simd_match = _SIMD_SUPPORT_RE.search(info)
+    simd = simd_match.group(1).strip() if simd_match else "unknown"
+    return codecs, simd
 
 
 @lru_cache(maxsize=1)
@@ -371,9 +442,28 @@ def _build_facts() -> tuple[str | None, str, str]:
     return ffmpeg, baseline, dispatch
 
 
+@lru_cache(maxsize=1)
+def _image_codec_facts() -> tuple[str | None, str]:
+    """Cached wrapper around :func:`_parse_image_codecs` — the ``_build_facts``
+    pattern, kept as a **separate** cache and a **separate** function (R30).
+
+    Not folded into :func:`_build_facts`: that function has 5 call sites
+    outside its own definition (`decode_environment`, two studies, and two
+    test files), one of which asserts
+    ``"_VIDEO_FFMPEG_LIBS" in inspect.getsource(_build_facts)``. A sibling
+    function leaves every one of those five untouched by construction.
+    """
+    try:
+        info = cv2.getBuildInformation()
+    except Exception:  # pragma: no cover - no build info available
+        return None, "unknown"
+    return _parse_image_codecs(info)
+
+
 def decode_environment() -> DecodeEnvironment:
     """Capture the current decode environment. Cheap enough to call per job."""
     ffmpeg, baseline, dispatch = _build_facts()
+    image_codec_version, image_codec_simd = _image_codec_facts()
     _, backend, source = resolve_video_backend()
     return DecodeEnvironment(
         opencv_version=cv2.__version__,
@@ -385,6 +475,8 @@ def decode_environment() -> DecodeEnvironment:
         python_version=".".join(str(v) for v in sys.version_info[:3]),
         cpu_baseline=baseline,
         cpu_dispatch=dispatch,
+        image_codec_version=image_codec_version,
+        image_codec_simd=image_codec_simd,
     )
 
 

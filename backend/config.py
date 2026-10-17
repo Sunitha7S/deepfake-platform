@@ -38,8 +38,29 @@ if TYPE_CHECKING:  # pragma: no cover - import only for type names
 
 Environment = Literal["dev", "staging", "prod"]
 
-STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.a97ccb68"
+STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
 """Runtime version of the shipped stub engines, copied here as a literal.
+
+**The ``.d.`` segment moved in S8 Batch 26 (R30 + D8/D9)** — ``a97ccb68`` to
+``c9d4025c`` — because the image-decode libraries (libjpeg-turbo, libpng,
+libwebp) grew from being proxied only by ``opencv_version`` into their own
+component of the decode identity, the image analogue of Batch 20's FFmpeg
+extension. Measured (`docs/R30_BUNDLE_DESIGN.md`, and the cross-build study in
+`docs/B24_R2_DESIGN.md` §1): two independent codec stacks spanning a major
+libjpeg-turbo version gap, a different libpng, a different libwebp, and stock
+zlib vs. zlib-ng decode every accepted MIME type (JPEG/PNG/WebP) bit-for-bit
+identically on this box — so this is a structural completeness fix, not a
+response to an observed divergence, the same D8/D10-class distinction Batch 20
+drew for its own residuals. The SIMD flag (D8) and zlib are deliberately
+**excluded** from the identity and go to :attr:`~inference.decode_env.
+DecodeEnvironment.digest` only, or nowhere — both are measured pixel-neutral
+and belong with ``cpu_baseline``/``cpu_dispatch``, not with the cache key. D9
+(``cv2.__version__`` drops the wheel's 4th digit) is folded in: the new
+``image_codec_version`` component is the direct fix for the blind spot D9
+described. One cache generation spanning both media namespaces (N8, accepted
+architectural cost — unchanged by this batch, just exercised again). No
+contract / RUN_SCHEMA / witness / OpenAPI / lock-version move. See
+``docs/R30_BUNDLE_DESIGN.md`` and ``docs/DECODE_IDENTITY_COMPLETENESS.md``.
 
 **The ``.f.`` segment moved in S8 Batch 23 (R29 + N4).** It was ``251d22e9`` —
 the face-selection policy fingerprint alone. It is now ``e629642c``, a

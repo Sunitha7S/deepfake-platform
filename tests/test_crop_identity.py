@@ -62,6 +62,12 @@ B23_SELECTION_IDENTITY = "e629642c"
 B23_MODEL_IDENTITY = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
 B23_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.a97ccb68"
 
+# S8 Batch 26 (R30): the ``.d.`` segment moved (image codec libraries joined the
+# decode identity). Kept separate from ``B23_STUB_ENGINE_VERSION`` above so the
+# "total across all eras" parser test keeps exercising the B23-shaped string
+# rather than silently retargeting to whatever the current literal is.
+B26_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
+
 
 def _spec(input_size: int) -> ModelSpec:
     return (
@@ -277,10 +283,10 @@ def test_the_migration_moved_only_what_it_should():
 
     # The *face* policy identity did not move; the ``.f.`` segment became the
     # face+video composite in B23, and the model identity / engine literal moved
-    # with it.
+    # with it. B26 (R30) then moved only the ``.d.`` tail.
     assert POLICY.identity == B22_POLICY_IDENTITY
     assert model_identity_of(STUB_ENGINE_VERSION) == B23_MODEL_IDENTITY
-    assert STUB_ENGINE_VERSION == B23_STUB_ENGINE_VERSION
+    assert STUB_ENGINE_VERSION == B26_STUB_ENGINE_VERSION
 
     # weights, calibration and gate segments did not move.
     parts = parse_model_version(STUB_ENGINE_VERSION)
@@ -288,7 +294,7 @@ def test_the_migration_moved_only_what_it_should():
     assert parts.calibration == "739c3fec"
     assert parts.gate == "ae232cba"
     assert parts.face_selection == B23_SELECTION_IDENTITY
-    assert STUB_ENGINE_VERSION.endswith(".d.a97ccb68")
+    assert STUB_ENGINE_VERSION.endswith(".d.c9d4025c")  # R30, Batch 26
 
 
 def test_parse_model_version_is_total_across_all_eras():
@@ -300,6 +306,7 @@ def test_parse_model_version_is_total_across_all_eras():
         "stub-0-w7f45fada+c.739c3fec.g.ae232cba.f.19559387.d.a97ccb68",  # B20-B21
         B22_STUB_ENGINE_VERSION,                                         # B22
         B23_STUB_ENGINE_VERSION,                                         # B23 (composite .f.)
+        B26_STUB_ENGINE_VERSION,                                         # B26 (R30, .d. moved)
     ]
     for v in eras:
         parts = parse_model_version(v)

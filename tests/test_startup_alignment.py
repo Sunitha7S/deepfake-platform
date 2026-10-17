@@ -73,7 +73,7 @@ def test_the_worker_gate_accepts_the_shipped_configuration():
 def test_worker_boot_refuses_a_stale_literal():
     """A worker whose configured version differs from its engines fails closed,
     before the loop, naming the value the engines report."""
-    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.c9d4025c"
     assert stale != STUB_ENGINE_VERSION
     with _env(DFP_MODEL_VERSION=None, DFP_SKIP_VERSION_ALIGNMENT=None):
         try:
@@ -95,7 +95,7 @@ def test_run_with_shutdown_runs_the_gate_before_the_loop():
         async def run(self, **_kw):  # pragma: no cover - must never be reached
             raise AssertionError("the loop started despite a version mismatch")
 
-    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.c9d4025c"
     with _env(DFP_MODEL_VERSION=stale, DFP_SKIP_VERSION_ALIGNMENT=None):
         try:
             asyncio.run(run_with_shutdown(ExplodingRunner()))
@@ -122,7 +122,7 @@ def test_skip_flag_bypasses_with_a_warning(capfd=None):
     prior_level = logger.level
     logger.setLevel(logging.WARNING)
     try:
-        stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+        stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.c9d4025c"
         with _env(DFP_MODEL_VERSION=stale, DFP_SKIP_VERSION_ALIGNMENT="true"):
             verify_engine_alignment_at_startup()  # must NOT raise
     finally:
@@ -208,7 +208,7 @@ def test_api_lifespan_refuses_a_marker_bearing_but_unparseable_model_version():
     raises on: a ``.f.`` marker with no fingerprint after it. The ``except
     ValueError`` branch of the format check must abort startup and name the
     string."""
-    malformed = "stub-0+c.739c3fec.g.ae232cba.f..d.a97ccb68"
+    malformed = "stub-0+c.739c3fec.g.ae232cba.f..d.c9d4025c"
     try:
         with TestClient(create_app(_settings(model_version=malformed))):
             pass
@@ -235,7 +235,7 @@ def test_run_with_shutdown_forwards_the_configured_literal():
         async def run(self, **_kw):  # pragma: no cover - must never be reached
             raise AssertionError("the loop started despite a version mismatch")
 
-    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.c9d4025c"
     with _env(DFP_MODEL_VERSION=None, DFP_SKIP_VERSION_ALIGNMENT=None):
         try:
             asyncio.run(
@@ -252,7 +252,7 @@ def test_run_with_shutdown_forwards_the_configured_literal():
 def test_skip_version_alignment_parameter_bypasses_without_the_env_var():
     """PA2. The new keyword is an independent path to the same escape hatch —
     it must not require $DFP_SKIP_VERSION_ALIGNMENT to also be set."""
-    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.c9d4025c"
     with _env(DFP_MODEL_VERSION=None, DFP_SKIP_VERSION_ALIGNMENT=None):
         verify_engine_alignment_at_startup(stale, skip_version_alignment=True)  # must NOT raise
 
@@ -273,7 +273,7 @@ def test_the_config_default_path_now_gets_the_full_check():
     them to each other); passing the literal explicitly now catches it."""
     import workers.engine_registry as er
 
-    agreeing_but_wrong = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.11111111.d.a97ccb68"
+    agreeing_but_wrong = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.11111111.d.c9d4025c"
 
     def _agree() -> dict[str, str]:
         return {"image": agreeing_but_wrong, "video": agreeing_but_wrong}

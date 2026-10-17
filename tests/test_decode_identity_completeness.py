@@ -338,7 +338,7 @@ def test_the_decode_segment_moved_and_the_literal_was_updated():
 
     assert DECODE_MARKER in STUB_ENGINE_VERSION
     assert STUB_ENGINE_VERSION.endswith(f"{DECODE_MARKER}{decode_identity()}")
-    assert STUB_ENGINE_VERSION.endswith(".d.a97ccb68"), STUB_ENGINE_VERSION
+    assert STUB_ENGINE_VERSION.endswith(".d.c9d4025c"), STUB_ENGINE_VERSION  # R30, Batch 26
     verify_version_alignment(STUB_ENGINE_VERSION)  # raises if the literal is stale
 
 
@@ -361,7 +361,7 @@ def test_no_contract_schema_or_witness_version_bump():
 
 def test_the_openapi_snapshot_does_not_carry_the_decode_segment():
     snap = (ROOT / "backend/openapi.snapshot.json").read_text(encoding="utf-8")
-    assert "c20a064a" not in snap and "a97ccb68" not in snap
+    assert "c20a064a" not in snap and "a97ccb68" not in snap and "c9d4025c" not in snap
     assert ".d." not in snap  # the runtime version is a value, not structure
 
 

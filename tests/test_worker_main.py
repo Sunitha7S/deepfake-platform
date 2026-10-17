@@ -55,7 +55,7 @@ class ExplodingRunner:
 def test_worker_main_gates_once_before_either_loop_starts():
     """The gate runs before ``asyncio.gather`` ever awaits a runner — a stale
     configured literal must stop both queues, not just one."""
-    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.c9d4025c"  # R30, Batch 26
     runners = {"image": ExplodingRunner(), "video": ExplodingRunner()}
     try:
         asyncio.run(_run_all(runners, configured_model_version=stale))

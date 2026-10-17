@@ -42,6 +42,7 @@ import test_branch_b_semantics  # noqa: E402
 import test_headline_and_face_semantics  # noqa: E402
 import test_frame_count_reproducibility  # noqa: E402
 import test_decode_identity_completeness  # noqa: E402
+import test_image_decode_identity  # noqa: E402
 import test_decode_determinism  # noqa: E402
 import test_dependencies  # noqa: E402
 import test_run_identity  # noqa: E402
@@ -122,6 +123,7 @@ SUITES = [
     ("S8-B23 video selection identity (R29 + N4)", test_video_selection_identity),
     ("S8-B23 startup alignment (OR1)", test_startup_alignment),
     ("S8-B25 worker composition root (OR1-b)", test_worker_main),
+    ("S8-B26 image decode identity (R30 + D8/D9)", test_image_decode_identity),
 ]
 
 

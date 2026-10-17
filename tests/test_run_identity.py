@@ -426,7 +426,8 @@ def test_the_forensic_digest_is_strictly_finer_than_the_cache_identity():
     assert payload["digest"] == env.digest
     for field in ("opencv_version", "video_backend", "ffmpeg_version",
                   "platform_system", "platform_machine", "cpu_baseline",
-                  "cpu_dispatch", "backend_source", "python_version"):
+                  "cpu_dispatch", "backend_source", "python_version",
+                  "image_codec_version", "image_codec_simd"):
         assert field in payload, f"{field} is not recoverable for forensics"
 
 

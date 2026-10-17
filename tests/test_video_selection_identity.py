@@ -63,6 +63,7 @@ from evaluation.calibration_protocol import CALIBRATION_WITNESS_VERSION  # noqa:
 from inference import ImagePipeline, VideoPipeline  # noqa: E402
 from inference import postprocess as post  # noqa: E402
 from inference import preprocess as pre  # noqa: E402
+from inference.decode_env import decode_identity  # noqa: E402
 from inference.models import ModelSpec  # noqa: E402
 from inference.postprocess import pool_at, topk_indices  # noqa: E402
 from inference.preprocess import sample_frame_indices  # noqa: E402
@@ -75,6 +76,14 @@ FINDING = "R29"
 B23_SELECTION_IDENTITY = "e629642c"
 B23_MODEL_IDENTITY = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
 B23_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.a97ccb68"
+
+# S8 Batch 26 (R30): the ``.d.`` segment moved (image codec libraries joined the
+# decode identity); ``.f.`` / the model identity are unchanged since B23. Kept as
+# a separate constant, not a mutation of ``B23_STUB_ENGINE_VERSION`` above, so
+# tests that specifically exercise "the B23 string shape"
+# (``test_parse_model_version_is_total_across_the_b23_string``) keep testing that
+# shape rather than silently retargeting to whatever the current literal is.
+B26_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
 
 # A fixed run of the shipped policy through the synthetic clip below. If pooling
 # or sampling logic moves, this moves with it — the output-identical guarantee,
@@ -301,7 +310,7 @@ def test_the_shipped_video_bundle_did_not_move():
     literal, ``sampling`` is the N4-corrected value, and ``p_fake`` is the pinned
     number. Every field names current behaviour verbatim."""
     _, bundle = _analyse(SHIPPED)
-    assert bundle.model.version == STUB_ENGINE_VERSION == B23_STUB_ENGINE_VERSION
+    assert bundle.model.version == STUB_ENGINE_VERSION == B26_STUB_ENGINE_VERSION
     assert bundle.video.sampling == "uniform"  # N4: was "uniform+adaptive" in fixtures
     assert bundle.video.pooling == "topk_mean"
     assert bundle.p_fake == SHIPPED_P_FAKE, (
@@ -338,7 +347,7 @@ def test_batch_23_moved_only_the_selection_identity():
     assert parts.calibration == "739c3fec"
     assert parts.gate == "ae232cba"
     assert parts.face_selection == B23_SELECTION_IDENTITY
-    assert STUB_ENGINE_VERSION.endswith(".d.a97ccb68")
+    assert STUB_ENGINE_VERSION.endswith(".d.c9d4025c")  # R30, Batch 26
     assert model_identity_of(STUB_ENGINE_VERSION) == B23_MODEL_IDENTITY
     # the face policy identity itself is unchanged
     assert pre.default_face_selection().identity == "251d22e9"
@@ -410,7 +419,7 @@ def test_alignment_accepts_the_shipped_configuration_and_rejects_a_stale_one():
 
     stale_face_only = compose_runtime_version(
         model=B23_MODEL_IDENTITY.replace(".f.e629642c", ".f.251d22e9"),
-        decode="a97ccb68",
+        decode=decode_identity(),
     )
     try:
         verify_version_alignment(stale_face_only)
