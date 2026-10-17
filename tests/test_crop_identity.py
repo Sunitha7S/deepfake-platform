@@ -181,6 +181,83 @@ def test_the_interpolation_rule_name_matches_resize():
         ), f"resize disagrees with its named rule at (h={h}, w={w}, size={size})"
 
 
+def test_a_real_crop_produces_the_mixed_case_resize_predicate_objects_to():
+    """R28 reachability (`docs/R23_R28_DESIGN.md` §3.2/§7, D1). Not a scripted
+    array — the real, shipped `crop_face()`, fed a large, near-border
+    `FaceBox` under the shipped policy. Reproduces the finding from first
+    principles: a crop whose two dimensions straddle `input_size` is
+    genuinely reachable through the pipeline's own code, not only through a
+    hand-built array like `test_the_interpolation_rule_name_matches_resize`
+    above uses. Proves nothing is fixed — see D2/D3 and
+    `docs/R23_R28_DESIGN.md` §3.4 for why this stays unfixed.
+    """
+    img = np.full((1200, 1200, 3), 128, np.uint8)
+    box = FaceBox(x=1000, y=400, width=350, height=350)  # large, near the right edge
+    crop = pre.crop_face(img, box, policy=POLICY)
+    h, w = crop.shape[:2]
+    assert (h > INPUT) != (w > INPUT), (
+        f"crop {w}x{h} does not straddle input_size={INPUT}; adjust the fixture — "
+        "this test needs the mixed case to exist, not merely a stretched crop"
+    )
+
+
+def test_the_mixed_case_crop_gets_area_interpolation_on_its_upsampled_axis():
+    """R28 reachability, D2. The label (`interpolation_rule`) and the live,
+    reachable behaviour must agree on D1's own real output, not only on an
+    isolated scripted array — closing the gap
+    `test_the_interpolation_rule_name_matches_resize` leaves: that test
+    proves the *name* matches `resize`'s predicate; this one proves the
+    predicate actually fires on the pipeline's own real crop, and that the
+    axis being enlarged (upsampled) is the one that incorrectly inherits
+    `INTER_AREA` — R28's exact objection.
+    """
+    img = np.full((1200, 1200, 3), 128, np.uint8)
+    box = FaceBox(x=1000, y=400, width=350, height=350)
+    crop = pre.crop_face(img, box, policy=POLICY)
+    h, w = crop.shape[:2]
+    assert h > INPUT or w > INPUT, "the fixture stopped triggering the AREA branch"
+    assert min(h, w) < INPUT < max(h, w), (
+        "the fixture no longer straddles input_size on both sides"
+    )
+    resized = pre.resize(crop, INPUT)
+    expected = cv2.resize(crop, (INPUT, INPUT), interpolation=cv2.INTER_AREA)
+    assert np.array_equal(resized, expected), (
+        "resize() took a different branch than the mixed-case predicate "
+        "predicts for a real crop_face() output — R28's premise no longer "
+        "holds, or the predicate changed without this test noticing"
+    )
+
+
+def test_r28_is_documented_as_live_not_hypothetical():
+    """R28 reachability, D3. Doc-linkage, the
+    `test_r29_is_tracked_in_the_reproducibility_audit` /
+    `test_the_clamp_gap_is_tracked_in_the_reproducibility_audit` pattern
+    (`tests/test_video_selection_identity.py`, `tests/
+    test_face_geometry_publication.py`) — but scoped to the **R28 row
+    itself**, not the whole document: `crop_face` and `real`/`reachable`
+    both appear dozens of times elsewhere in this file's history sections
+    (measured — `grep -c crop_face REPRODUCIBILITY_AUDIT.md` finds 15+ hits
+    outside the R28 row alone), so a whole-document substring check would
+    pass regardless of what the R28 row itself says.
+    """
+    import re
+
+    audit = (Path(__file__).resolve().parent.parent / "REPRODUCIBILITY_AUDIT.md").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r"^\| R28 \|.*$", audit, re.MULTILINE)
+    assert match, "R28 has no row in the summary table"
+    row = match.group(0).lower()
+    assert "crop_face" in row, (
+        "the R28 row no longer names crop_face — re-check docs/R23_R28_DESIGN.md "
+        "§3.2 is still reflected"
+    )
+    assert "real" in row or "reachable" in row, (
+        "the R28 row no longer documents the defect as reachable through real "
+        "pipeline output, not only a scripted example"
+    )
+
+
 def test_the_clip_rule_name_matches_crop_face():
     """`crop_face` must intersect its window with the image — nothing else —
     for the name `"intersect-image"` to be honest.
