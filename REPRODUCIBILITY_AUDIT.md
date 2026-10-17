@@ -103,7 +103,7 @@ rest are read from the code and marked accordingly.
 | R13 | Face-crop instability amplifies decoder drift | determinism | **Medium–High** | **Open** — quantified in B10 at **310× amplification, 25.7% of decisions**; deferred to SCRFD with an acceptance criterion |
 | R14 | Face selection decided by detector output order | determinism | Medium | **Closed in B10** — measured |
 | R15 | The face cascade was shared across threads | determinism + correctness | **High** | **Closed in B10** — measured; leaked detections between concurrent jobs |
-| R16 | One face's verdict is published as the media's | contract | Low | **Open** — by design, needs a deliberate decision |
+| R16 | One face's verdict is published as the media's | contract | Low | **Closed for the documentation half, in Batch 27.** `EvidenceBundle.verdict`/`.p_fake` (`contracts/evidence.py`) now state plainly that the result describes only the largest detected face, matching the caveat `FaceTrack`'s docstring already carried. **Not closed**: publishing per-face evidence (Option 2 of `docs/MULTI_FACE_SEMANTICS.md` §12) remains open, deliberately deferred — `inference/preprocess.py` still runs Haar (no SCRFD), and R13's 310× amplification means per-face scores published today would be, in that document's own words, "mostly a report on the placeholder's eyesight." See `docs/R16_R26_DESIGN.md`, `docs/R16_R26_SPEC_RESOLUTION.md` |
 | R17 | Face-selection policy and crop margin are outside every identity string | determinism + version | **Medium–High** | **Closed in B12** — measured; 3 of 3 verdicts reachable by crop margin alone |
 | R18 | The video path has no face stage, and the contract says it does | correctness + contract | Medium | **Partially closed in B13** — dangling `track_id` and every false claim closed; the faceless-clip verdict stays open and is pinned by a test |
 | R19 | The gate ranks faces on area and tests short edge | correctness | Medium | **Closed in B14** — one metric now ranks, gates and reports; activation threshold measured at 3 px against Haar's 1 px |
@@ -113,7 +113,7 @@ rest are read from the code and marked accordingly.
 | R23 | Crop geometry: clipping distorts, and the long edge collapses occupancy | correctness + documentation | **Medium** | **Characterised in B15; documentation half CLOSED, correctness halves open.** The distortion is **live today** with square boxes — 13.0% stretch at a border — and is *not* SCRFD-gated; only the occupancy half is |
 | R24 | The video path resizes whole frames onto a square | correctness | **Medium** | **Open** — live on every video bundle, 1.778× squash on 16:9; pinned by a test; fix belongs with the video face stage |
 | R25 | Crop geometry inputs outside every identity string | determinism + version | **Medium** | **Closed in B22.** `input_size` folded into `weights_identity` (functionally threaded); `interpolation_rule` + `crop_clip_rule` added to `FaceSelectionPolicy` (label closures pinned by re-derivation tests). Model identity `stub-0-w7f45fada+c.739c3fec.g.ae232cba.f.19559387` → `stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.251d22e9`. **Output-identical**, one cache generation, no `CONTRACT_VERSION` / `RUN_SCHEMA_VERSION` / `CALIBRATION_WITNESS_VERSION` / OpenAPI change — executed. Opened **R28**. Witness incidental-binding residual recorded |
-| R26 | The published `bbox` is not the region the model scored | contract | Low | **Open** — and `face_track`'s coordinate clamp will diverge from `crop_face` under a detector emitting boxes across the frame edge |
+| R26 | The published `bbox` is not the region the model scored | contract | Low | **Closed for Tier 1 + Tier 2 (option a), in Batch 27.** `FaceTrack`'s docstring (`contracts/common.py`) now states that `bbox` is the detector's box, not the scored region, and that no field carries the latter (Tier 1). A new suite (`tests/test_face_geometry_publication.py`) proves `face_track`'s `max(0, x)` clamp is currently a structural no-op under the shipped Haar detector, corroborating `docs/CROP_GEOMETRY.md` §3.2's 50,000-box brute force, and pins a permanent (deliberately not fixed) demonstration of the divergence a regressed box would produce (Tier 2, option a). **Not fixed**: the clamp itself — loosening `BoundingBox.x`/`.y`'s `ge=0` constraint (Tier 2, option b) is a genuine contract-shape decision explicitly deferred until a real detector exists to inform what the published value should become (`docs/R16_R26_SPEC_RESOLUTION.md` Decision 1); publishing the actual scored region (Tier 3) is entangled with R23's still-open geometry question and rides the SCRFD migration. See `docs/R16_R26_DESIGN.md`, `docs/R16_R26_SPEC_RESOLUTION.md` |
 | R28 | `resize`'s interpolation predicate area-filters an axis it is enlarging | correctness | Low | **Open — deferred (B22).** `INTER_AREA if h > size or w > size` low-passes an upsampled axis when a crop straddles `input_size` (500×300 → 384: 0.040/255). Fixing the predicate moves shipped pixels, so it is not in B22; B22 named the current behaviour in `FaceSelectionPolicy.interpolation_rule` and pinned it. Rides the next `.f.`-moving batch (R23/SCRFD or R16) |
 | R27 | The decode identity omits the demuxer; `frame_count` is a demuxer output | determinism + version | Medium | **Closed in B20.** `decode_identity`'s FFmpeg component grew from libavcodec alone to every FFmpeg library on the video path (avcodec + **avformat** + **swscale** + avutil; avresample excluded — audio only). All four protections (cache key, deployment identity, benchmark identity, calibration identity) now separate a demuxer/scaler difference — **executed, 4/4 blind → 0/4**. `STUB_ENGINE_VERSION` `.d.` `c20a064a` → `a97ccb68` (one cache generation); no `CONTRACT_VERSION` / `RUN_SCHEMA_VERSION` / `CALIBRATION_WITNESS_VERSION` / OpenAPI change. Residuals D8–D10 (swscale SIMD, wheel patch, same-version different build) recorded at the time, not closed by this batch — D8/D9 were the *image*-path analogues and closed in Batch 26 (R30); D10 (a video- and image-path residual alike) stays open, see the R30 row |
 | R29 | Video frame-selection and pooling parameters are outside every identity string | determinism + version | **Medium** | **Closed in B23.** New `VideoSelectionPolicy` (`inference/preprocess.py`) — `n_frames`, `min_usable_frames`, `pool_divisor` (functional; the pipeline reads them) plus `sampling_rule` / `pooling_rule` (label closures, also the published `VideoAnalysis.sampling` / `.pooling` values). `selection_identity(face, video) = fingerprint({"face": …, "video": …})` feeds the `.f.` segment from **both** pipelines, so the single `STUB_ENGINE_VERSION` literal and `contracts/version.py` are untouched. Model identity `…f.251d22e9` → `…f.e629642c` (`default_face_selection().identity` unchanged at `251d22e9`). `batch_size` excluded, proven output-neutral. **Output byte-identical**, one cache generation spanning both media namespaces (B20 precedent), no `CONTRACT_VERSION` / `RUN_SCHEMA_VERSION` / `CALIBRATION_WITNESS_VERSION` / OpenAPI-structural move — executed. See the Batch 23 section and `docs/VIDEO_SELECTION_IDENTITY.md` |
@@ -3567,3 +3567,35 @@ hash), **D12** (new, recorded not fixed), **R32** (tracked), **R34**
 variability today; N7 not applicable). **R12, R17, R19, R20, R21, R22, R25,
 R27, R29, R30, D9, N4, N5, N8, N9, OR1, OR1-b, R31, R33, R35, R36 are closed;
 R6 and R18 are PARTIALLY CLOSED; D8 is PARTIALLY CLOSED.**
+
+## Still open after Batch 27 (R16 + R26)
+
+**R16 closed for the documentation half** (`EvidenceBundle.verdict`/
+`.p_fake` state the single-face policy `FaceTrack` already documented).
+**R26 closed for Tier 1 + Tier 2 (option a)** (`FaceTrack`'s bbox-vs-scored-
+region caveat; `face_track`'s clamp proven a structural no-op under Haar,
+corroborating `docs/CROP_GEOMETRY.md` §3.2, and permanently pinned as a
+named, deliberately-unfixed gap). Neither finding's SCRFD-gated half moved:
+R16 Option 2 (per-face scoring) and R26 Tier 2-option-(b)/Tier 3 (loosening
+`BoundingBox`, publishing the scored region) remain open, explicitly
+deferred, not forgotten. See `docs/R16_R26_DESIGN.md`,
+`docs/R16_R26_SPEC_RESOLUTION.md`.
+
+R6-a, R6-b, R9 (by design), R10, **R13** (310×, SCRFD acceptance criterion),
+**R16** (Option 2 only — engineering half, SCRFD-gated), **R18** (partially
+closed — capability half open), **R23's correctness halves**, **R24**,
+**R26** (Tier 2-option-b + Tier 3 only — SCRFD-gated), **R28** (deferred),
+**D8** (video/libswscale half only — image half closed), **D10** (open — no
+fix exists, needs a binary hash), **D12** (recorded not fixed), **R32**
+(tracked), **R34** (tracked), **N3** (deferred), **N6 / N7** (open — N6 real
+but zero live variability today; N7 not applicable). **R12, R17, R19, R20,
+R21, R22, R25, R27, R29, R30, D9, N4, N5, N8, N9, OR1, OR1-b, R31, R33, R35,
+R36 are closed; R6, R16, R18, R26 are PARTIALLY CLOSED; D8 is PARTIALLY
+CLOSED.**
+
+**B28+ candidates:** per `docs/PROJECT_ROADMAP.md` Phase 5 — R23-border-clip
++ R28 (timing-sensitive, no real model to validate a pixel change against
+yet). Everything else (R13, R18's capability half, R24, R6-a/R6-b, R10,
+R23's occupancy half, R16 Option 2, R26's SCRFD-gated halves) is a separate
+program gated on SCRFD / a video face stage / a real model — not a batch.
+See `docs/PROJECT_ROADMAP.md` for full execution order.

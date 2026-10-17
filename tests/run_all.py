@@ -38,6 +38,7 @@ import test_video_selection_identity  # noqa: E402
 import test_startup_alignment  # noqa: E402
 import test_contracts  # noqa: E402
 import test_faces_consistency  # noqa: E402
+import test_face_geometry_publication  # noqa: E402
 import test_branch_b_semantics  # noqa: E402
 import test_headline_and_face_semantics  # noqa: E402
 import test_frame_count_reproducibility  # noqa: E402
@@ -124,6 +125,7 @@ SUITES = [
     ("S8-B23 startup alignment (OR1)", test_startup_alignment),
     ("S8-B25 worker composition root (OR1-b)", test_worker_main),
     ("S8-B26 image decode identity (R30 + D8/D9)", test_image_decode_identity),
+    ("S8-B27 face geometry publication (R16 + R26)", test_face_geometry_publication),
 ]
 
 

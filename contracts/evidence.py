@@ -42,7 +42,16 @@ class EvidenceBundle(Base):
 
     media: MediaInfo
 
-    verdict: Verdict
+    verdict: Verdict = Field(
+        ...,
+        description=(
+            "The three-state result for the media's single published face — the "
+            "largest one detected (face_order_key selects it; see FaceTrack's own "
+            "note). A multi-subject photograph's verdict describes one person in "
+            "it; the platform does not currently score or publish evidence for "
+            "any other face present (R16, open)."
+        ),
+    )
     p_fake: float | None = Field(
         default=None,
         ge=0.0,
@@ -50,7 +59,8 @@ class EvidenceBundle(Base):
         description=(
             "Calibrated probability of manipulation. Null iff the verdict is "
             "insufficient_evidence. Stored at full precision — never round before "
-            "persisting."
+            "persisting. Describes the same single selected face verdict does, "
+            "not an aggregate over every face in the media."
         ),
     )
     interval: tuple[float, float] | None = Field(

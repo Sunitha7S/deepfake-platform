@@ -104,6 +104,13 @@ class FaceTrack(Base):
       every video bundle carries ``faces=[]`` and a null ``quality.face_px``.
       That is R18. The fixtures and the stub handlers depict a populated track
       because they describe the post-SCRFD target the frontend builds against.
+    * **``bbox`` is the detector's box, not the region the model scored.**
+      ``crop_face`` expands it by the selection policy's margin, then clips it
+      to the image — a different, and usually larger, window than what is
+      published here. No field on this contract carries that window;
+      recovering it requires re-deriving it from ``bbox`` and the shipped
+      ``FaceSelectionPolicy``, which a client cannot do from the wire alone.
+      That gap is R26, open.
 
     ``frames_seen`` is therefore always 1 in practice; a value above 1 belongs to
     the tracked video path that does not exist yet.
