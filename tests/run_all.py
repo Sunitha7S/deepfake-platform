@@ -66,6 +66,7 @@ import test_split_lock  # noqa: E402
 import test_storage  # noqa: E402
 import test_video_branches  # noqa: E402
 import test_worker_inference_integration  # noqa: E402
+import test_worker_main  # noqa: E402
 import test_workers  # noqa: E402
 
 SUITES = [
@@ -120,6 +121,7 @@ SUITES = [
     ("S8-B22 crop identity", test_crop_identity),
     ("S8-B23 video selection identity (R29 + N4)", test_video_selection_identity),
     ("S8-B23 startup alignment (OR1)", test_startup_alignment),
+    ("S8-B25 worker composition root (OR1-b)", test_worker_main),
 ]
 
 

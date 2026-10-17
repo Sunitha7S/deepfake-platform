@@ -603,13 +603,19 @@ def test_n4_default_is_uniform_in_the_generated_schema():
     assert "uniform+adaptive" not in raw
 
 
-def test_settings_has_no_skip_version_alignment_field():
-    """R3 §1.8 — the worker gate is env-only (``$DFP_SKIP_VERSION_ALIGNMENT``);
-    a ``Settings.skip_version_alignment`` the worker cannot read would be dead
-    config. It returns wired in B24/OR1-b."""
+def test_settings_gained_a_wired_skip_version_alignment_field_in_or1_b():
+    """R3 §1.8 predicted this reversal by name: through B23 the worker gate was
+    env-only (``$DFP_SKIP_VERSION_ALIGNMENT``); a ``Settings.skip_version_
+    alignment`` the worker could not read would have been dead config. **OR1-b
+    (Batch 25)** wires it: `backend/worker_main.py`, the composition root, may
+    import both `backend` and `workers`, and passes the field's value into
+    `verify_engine_alignment_at_startup(..., skip_version_alignment=...)`
+    directly — checked with `or` alongside the environment variable, which a
+    bare `workers`-only deployment still uses on its own."""
     from backend.config import Settings
 
-    assert "skip_version_alignment" not in Settings.model_fields
+    assert "skip_version_alignment" in Settings.model_fields
+    assert Settings.model_fields["skip_version_alignment"].default is False
 
 
 # --------------------------------------------------------------------------

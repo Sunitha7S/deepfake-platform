@@ -224,14 +224,27 @@ class Settings(BaseSettings):
         ),
     )
 
-    # NOTE (B23-R3 §1.8): the worker startup alignment gate (OR1) has *no*
-    # Settings field. The worker cannot import ``backend`` (Batch-0 layering), so
-    # a ``Settings.skip_version_alignment`` would be dead config on the env-only
-    # worker. The one escape hatch is the environment variable
-    # ``DFP_SKIP_VERSION_ALIGNMENT`` (read directly by
-    # ``workers.runner.verify_engine_alignment_at_startup``). A wired
-    # ``skip_version_alignment`` field returns in B24/OR1-b together with the
-    # ``backend/worker_main.py`` composition root that reads it.
+    # OR1-b (Batch 25): wired up. ``backend/worker_main.py``, the composition
+    # root, reads this field and passes it into
+    # ``workers.runner.verify_engine_alignment_at_startup(..., skip_version_
+    # alignment=...)`` directly — it may import both ``backend`` and
+    # ``workers``, unlike a bare worker process, which still cannot import
+    # ``backend`` (Batch-0 layering) and keeps using the environment variable
+    # ``DFP_SKIP_VERSION_ALIGNMENT`` for the same effect. The two mechanisms
+    # are checked with ``or`` inside that function; this field does not
+    # replace the environment variable, it adds a second, typed way to reach
+    # the identical escape hatch for anyone deploying through the composition
+    # root.
+    skip_version_alignment: bool = Field(
+        default=False,
+        description=(
+            "Bypass the worker startup version-alignment gate (OR1), logging a "
+            "warning every boot instead of failing closed. For the one case "
+            "where an operator must deploy now and regenerate model_version "
+            "after. Equivalent to $DFP_SKIP_VERSION_ALIGNMENT; only observed by "
+            "backend/worker_main.py, not by a bare workers-only deployment."
+        ),
+    )
 
     # ---- storage --------------------------------------------------------
     storage_base_url: str = Field(

@@ -395,7 +395,11 @@ class WorkerRunner:
 _TRUE = {"1", "true", "yes", "on"}
 
 
-def verify_engine_alignment_at_startup(configured_model_version: str | None = None) -> None:
+def verify_engine_alignment_at_startup(
+    configured_model_version: str | None = None,
+    *,
+    skip_version_alignment: bool = False,
+) -> None:
     """Fail a worker closed if its engines do not report the configured version.
 
     **OR1 (Batch 23).** ``workers.engine_registry.verify_version_alignment`` has
@@ -424,6 +428,14 @@ def verify_engine_alignment_at_startup(configured_model_version: str | None = No
     and returns. It exists for the one case where an operator must deploy now and
     regenerate the literal after.
 
+    ``skip_version_alignment`` is the same escape hatch, reachable without an
+    environment variable. **OR1-b (Batch 25).** The composition root
+    (``backend/worker_main.py``) passes ``get_settings().skip_version_alignment``
+    here; a bare ``workers``-only deployment with no ``backend`` composition
+    root keeps using ``$DFP_SKIP_VERSION_ALIGNMENT`` directly, since it cannot
+    read ``Settings`` either. The two are checked with ``or`` — neither
+    replaces the other.
+
     Imports are local so ``import workers.runner`` stays cheap and free of cv2 /
     numpy for callers that only need ``WorkerRunner``.
     """
@@ -432,7 +444,9 @@ def verify_engine_alignment_at_startup(configured_model_version: str | None = No
     from contracts.version import is_composed, is_environment_pinned
     from workers.engine_registry import engine_versions, verify_version_alignment
 
-    if os.environ.get("DFP_SKIP_VERSION_ALIGNMENT", "").strip().lower() in _TRUE:
+    if skip_version_alignment or os.environ.get(
+        "DFP_SKIP_VERSION_ALIGNMENT", ""
+    ).strip().lower() in _TRUE:
         log.warning(
             "version alignment check skipped by DFP_SKIP_VERSION_ALIGNMENT; the "
             "result cache is silently disabled if the configured model_version "
@@ -472,7 +486,11 @@ def verify_engine_alignment_at_startup(configured_model_version: str | None = No
 
 
 async def run_with_shutdown(
-    runner: WorkerRunner, *, max_jobs: int | None = None, idle_timeout_s: float | None = None
+    runner: WorkerRunner,
+    *,
+    max_jobs: int | None = None,
+    idle_timeout_s: float | None = None,
+    configured_model_version: str | None = None,
 ) -> WorkerReport:
     """Run a worker, draining in-flight work on SIGINT or SIGTERM.
 
@@ -481,11 +499,18 @@ async def run_with_shutdown(
     — notably Windows, where ``add_signal_handler`` is unavailable.
 
     Before the loop starts, :func:`verify_engine_alignment_at_startup` runs the
-    fail-closed OR1 gate.
+    fail-closed OR1 gate. ``configured_model_version`` is forwarded to it
+    unchanged; ``None`` (the default) preserves the pre-OR1-b behaviour exactly
+    — fall back to ``$DFP_MODEL_VERSION``, then the engines-agree-with-each-other
+    check. **OR1-b (Batch 25).** For a deployment running more than one worker
+    in one process, see ``backend/worker_main.py`` — it calls
+    :func:`verify_engine_alignment_at_startup` directly, once, before driving
+    every runner, rather than through this function, which remains
+    single-runner-shaped.
     """
     import signal
 
-    verify_engine_alignment_at_startup()
+    verify_engine_alignment_at_startup(configured_model_version)
 
 
     loop = asyncio.get_running_loop()

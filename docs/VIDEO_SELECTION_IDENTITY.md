@@ -151,19 +151,21 @@ produced a zero structural diff.
 only from tests. B23 makes it a deploy-time gate:
 
 - **Worker:** `workers.runner.verify_engine_alignment_at_startup(configured=None)`
-  runs from `run_with_shutdown` before the loop, fail-closed. The **only** escape
-  hatch is the environment variable `DFP_SKIP_VERSION_ALIGNMENT` (truthy set
-  `{"1","true","yes","on"}`, logged `WARNING` every boot) — the worker reads it
-  directly from `os.environ` because it may not import `backend` (the dependency
-  DAG). There is **no** `Settings.skip_version_alignment` field: on the env-only
-  worker it would be dead config (nothing reads it). A wired field returns in
-  **B24/OR1-b** together with `backend/worker_main.py`, the composition root that
-  passes `get_settings().model_version` into the gate's `configured` parameter.
-  Until B24, the configured literal reaches the gate only as `$DFP_MODEL_VERSION`;
-  with neither, the gate still refuses to start on engines that disagree with
-  each other or a malformed version, and
-  `test_configured_model_version_matches_the_engines` stays the pre-merge guard
-  for the `backend.config` default.
+  runs from `run_with_shutdown` before the loop, fail-closed. A bare
+  `workers`-only deployment (no `backend` composition root) reads the escape
+  hatch directly from `os.environ` (`DFP_SKIP_VERSION_ALIGNMENT`, truthy set
+  `{"1","true","yes","on"}`, logged `WARNING` every boot) because it may not
+  import `backend` (the dependency DAG); with no configured literal in reach
+  either, the gate still refuses to start on engines that disagree with each
+  other or a malformed version, and `test_configured_model_version_matches_
+  the_engines` stays the pre-merge guard for the `backend.config` default.
+  **OR1-b (Batch 25): wired.** `backend/worker_main.py`, the composition
+  root, calls the gate once directly (not through `run_with_shutdown`, which
+  stays single-runner-shaped) and passes both
+  `get_settings().model_version` into `configured_model_version` and
+  `get_settings().skip_version_alignment` into `skip_version_alignment` — a
+  typed field re-added to `Settings` for exactly this, checked with `or`
+  alongside the environment variable, never replacing it.
 - **API:** `backend.app.lifespan` gains a stdlib-only format check on
   `settings.model_version` — `is_composed` + `is_environment_pinned` + a
   `parse_model_version(...).compose()` round-trip. The API process must stay free
@@ -236,8 +238,11 @@ engine build refuses to start during the window. Two safe paths:
    the audit trace.
 
 Deploy runbook: set `DFP_MODEL_VERSION` to the new `STUB_ENGINE_VERSION` in the
-worker and API environment before rollout (until B24/OR1-b wires the
-config-default path into the full check).
+worker and API environment before rollout. **OR1-b (Batch 25):** no longer
+strictly required when deploying through `backend/worker_main.py`, which now
+supplies the equivalent literal from `Settings.model_version` directly to the
+gate — still required for a bare `workers`-only deployment with no `backend`
+composition root, since that process cannot read `Settings` at all.
 
 ## 9. What B23 does not fix
 

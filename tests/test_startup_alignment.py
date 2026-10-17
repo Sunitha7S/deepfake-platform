@@ -220,6 +220,88 @@ def test_api_lifespan_refuses_a_marker_bearing_but_unparseable_model_version():
 
 
 # --------------------------------------------------------------------------
+# OR1-b — the composition-root parameters
+# --------------------------------------------------------------------------
+
+
+def test_run_with_shutdown_forwards_the_configured_literal():
+    """PA1. ``run_with_shutdown``'s new ``configured_model_version`` keyword
+    reaches the gate exactly as a bare call would — no env var needed."""
+    from workers.runner import run_with_shutdown
+
+    class ExplodingRunner:
+        def request_stop(self) -> None: ...
+
+        async def run(self, **_kw):  # pragma: no cover - must never be reached
+            raise AssertionError("the loop started despite a version mismatch")
+
+    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+    with _env(DFP_MODEL_VERSION=None, DFP_SKIP_VERSION_ALIGNMENT=None):
+        try:
+            asyncio.run(
+                run_with_shutdown(ExplodingRunner(), configured_model_version=stale)
+            )
+        except RuntimeError as exc:
+            assert "does not match the engines" in str(exc)
+            return
+    raise AssertionError(
+        "run_with_shutdown did not forward configured_model_version to the gate"
+    )
+
+
+def test_skip_version_alignment_parameter_bypasses_without_the_env_var():
+    """PA2. The new keyword is an independent path to the same escape hatch —
+    it must not require $DFP_SKIP_VERSION_ALIGNMENT to also be set."""
+    stale = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.00000000.d.a97ccb68"
+    with _env(DFP_MODEL_VERSION=None, DFP_SKIP_VERSION_ALIGNMENT=None):
+        verify_engine_alignment_at_startup(stale, skip_version_alignment=True)  # must NOT raise
+
+
+def test_skip_version_alignment_defaults_false_and_is_env_backed():
+    """PA3. ``Settings.skip_version_alignment`` — re-added in OR1-b — defaults
+    to False and is reachable through the same $DFP_SKIP_VERSION_ALIGNMENT
+    variable the env-only path already uses."""
+    with _env(DFP_SKIP_VERSION_ALIGNMENT=None):
+        assert _settings().skip_version_alignment is False
+    with _env(DFP_SKIP_VERSION_ALIGNMENT="true"):
+        assert _settings().skip_version_alignment is True
+
+
+def test_the_config_default_path_now_gets_the_full_check():
+    """PA4 — the headline. Two engines that agree with each other but not
+    with the configured default used to pass (the weak check only compares
+    them to each other); passing the literal explicitly now catches it."""
+    import workers.engine_registry as er
+
+    agreeing_but_wrong = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.11111111.d.a97ccb68"
+
+    def _agree() -> dict[str, str]:
+        return {"image": agreeing_but_wrong, "video": agreeing_but_wrong}
+
+    saved = er.engine_versions
+    er.engine_versions = _agree
+    try:
+        with _env(DFP_MODEL_VERSION=None, DFP_SKIP_VERSION_ALIGNMENT=None):
+            # Old shape: no configured literal in reach -> weak check only ->
+            # the two engines agree with each other -> passes.
+            verify_engine_alignment_at_startup()
+            # OR1-b: the composition root passes the configured literal
+            # explicitly -> the full check runs -> the agreed value does not
+            # match it -> refuses.
+            try:
+                verify_engine_alignment_at_startup(STUB_ENGINE_VERSION)
+            except RuntimeError as exc:
+                assert "does not match the engines" in str(exc)
+                return
+            raise AssertionError(
+                "the config-default path is still blind to a value both "
+                "engines agree on but that disagrees with the configured default"
+            )
+    finally:
+        er.engine_versions = saved
+
+
+# --------------------------------------------------------------------------
 # Standalone runner
 # --------------------------------------------------------------------------
 
