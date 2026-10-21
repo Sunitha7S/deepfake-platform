@@ -100,7 +100,7 @@ rest are read from the code and marked accordingly.
 | R10 | GPU/training nondeterminism entirely ahead of us | determinism | Deferred | No models yet |
 | R11 | Fitted threshold and configured band width can be jointly unrepresentable | calibration | Medium | **Closed in B7** — structurally unrepresentable |
 | R12 | The decoder is outside every identity string | determinism + version | Medium | **Closed** — cache/deployment/forensic (B9), benchmark + calibration (B11) — measured |
-| R13 | Face-crop instability amplifies decoder drift | determinism | **Medium–High** | **Open** — quantified in B10 at **310× amplification, 25.7% of decisions**; deferred to SCRFD with an acceptance criterion |
+| R13 | Face-crop instability amplifies decoder drift | determinism | **Medium–High** | **Open** — quantified in B10 at **310× amplification, 25.7% of decisions**; deferred to SCRFD with an acceptance criterion. **Measured against SCRFD-10G-KPS on 2026-10-17: does not clear** (faces lost, box movement > 1%; within-image amplification ~26×) — Haar stays shipped. See `docs/SCRFD_R13_MEASUREMENT_EVIDENCE.md` |
 | R14 | Face selection decided by detector output order | determinism | Medium | **Closed in B10** — measured |
 | R15 | The face cascade was shared across threads | determinism + correctness | **High** | **Closed in B10** — measured; leaked detections between concurrent jobs |
 | R16 | One face's verdict is published as the media's | contract | Low | **Closed for the documentation half, in Batch 27.** `EvidenceBundle.verdict`/`.p_fake` (`contracts/evidence.py`) now state plainly that the result describes only the largest detected face, matching the caveat `FaceTrack`'s docstring already carried. **Not closed**: publishing per-face evidence (Option 2 of `docs/MULTI_FACE_SEMANTICS.md` §12) remains open, deliberately deferred — `inference/preprocess.py` still runs Haar (no SCRFD), and R13's 310× amplification means per-face scores published today would be, in that document's own words, "mostly a report on the placeholder's eyesight." See `docs/R16_R26_DESIGN.md`, `docs/R16_R26_SPEC_RESOLUTION.md` |
@@ -3619,8 +3619,15 @@ multiple of 32); `tests/scrfd_corpus.py` builds a stratified evaluation corpus
 with a SHA-256 manifest; the study records asset digest, corpus digest,
 thresholds, seed and library versions. No version axis moved in B29/B30.
 
-**R13 is still Open, and is not measured.** The measurement tool is ready; the
-inputs are not: the SCRFD weights are licensed non-commercial-research-only and
-the licence has not been accepted, so no asset is fetched; no evaluation corpus
-is acquired. See `docs/SCRFD_PHASE4_PREREQUISITES_PLAN.md` and `docs/SCRFD_ASSET.md`.
-Every other open item listed after Batch 27 is unchanged.
+**R13 measured against SCRFD-10G-KPS (2026-10-17): does not clear — still
+Open.** Licence accepted for local non-commercial evaluation; detector verified
+against the upstream package manifest; 300-image WIDER FACE validation corpus
+(archive digest verified). Two seeded runs agree: faces lost 2 and 3 of 3,201
+trials (one near-threshold face), max short-edge move 27.3% / 25.4% (mostly
+one-pixel quantisation on small faces), and the documented pooled
+amplification reads 1.00× because between-image variance is ~100% of the
+pooled spread — the within-image diagnostic is ~26×, ~11× without top-face
+switches. Two study fixes landed before the runs: dynamic-input letterboxing
+and `face_order_key` ordering. No cutover; Haar stays the shipped default. See
+`docs/SCRFD_R13_MEASUREMENT_EVIDENCE.md`. Every other open item listed after
+Batch 27 is unchanged.

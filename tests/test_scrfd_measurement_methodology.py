@@ -286,6 +286,7 @@ def _fake_result(**overrides) -> dict:
         nms_iou_threshold=0.4,
         seed=0,
         environment={},
+        latency_ms={"scrfd": {"calls": 0}, "haar_baseline": {"calls": 0}},
         n_images=250,
         k_realisations=11,
         total_trials=2750,
@@ -373,6 +374,133 @@ def test_no_identity_or_schema_axis_moved():
 
 
 # --------------------------------------------------------------------------
+# K — the study scores the face the shipped pipeline would score
+# --------------------------------------------------------------------------
+
+
+class _ScriptedDetector:
+    """Returns pre-scripted boxes per call, in the (unordered) sequence given —
+    the FaceDetector contract promises no order; SCRFD emits score order."""
+
+    def __init__(self, script):
+        self.script, self.calls = list(script), 0
+
+    def detect(self, image, *, policy):
+        boxes = self.script[min(self.calls, len(self.script) - 1)]
+        self.calls += 1
+        return list(boxes)
+
+
+def _tile(seed=0):
+    return np.random.default_rng(seed).integers(0, 256, (120, 160, 3), dtype=np.uint8)
+
+
+def test_the_study_orders_boxes_like_detect_faces():
+    """``detect_faces`` sorts with ``face_order_key`` (largest first); the study
+    must track that same face, not whatever the detector happened to emit
+    first. Here a small face is emitted first on every call, and the large face
+    — the one the pipeline scores — never moves."""
+    from inference import preprocess as pre
+
+    small, large = pre.FaceBox(5, 5, 20, 20), pre.FaceBox(60, 30, 50, 50)
+    det = _ScriptedDetector([[small, large]] * 4)
+    trials = study._collect_image_trials([_tile()], det, None, np.random.default_rng(0), 3)
+    assert trials[0]["box0"] == [60, 30, 50, 50]
+    assert all(t["short_edge_move_pct"] == 0.0 for t in trials[0]["trials"])
+
+
+def test_a_top_face_switch_is_flagged_and_the_same_face_is_still_measured():
+    """Noise makes the second face slightly larger, so the pipeline's top face
+    switches identity. The documented statistic records that as a large box
+    move (a real selection instability); the diagnostic flags the switch and
+    measures the *original* face's own movement separately."""
+    from inference import preprocess as pre
+
+    a0, b0 = pre.FaceBox(10, 10, 50, 50), pre.FaceBox(90, 10, 48, 48)
+    a1, b1 = pre.FaceBox(10, 10, 50, 49), pre.FaceBox(90, 10, 52, 52)
+    det = _ScriptedDetector([[a0, b0], [a1, b1]])
+    t = study._collect_image_trials([_tile()], det, None, np.random.default_rng(0), 1)[0]["trials"][0]
+    assert t["top_switched"] is True and t["iou_top"] == 0.0
+    assert abs(t["short_edge_move_pct"] - 4.0) < 1e-9  # 50 -> 52, the other face
+    assert abs(t["matched_move_pct"] - 2.0) < 1e-9  # 50 -> 49, the same face
+    assert t["matched_iou"] > 0.9
+
+
+def test_box_stability_summary_separates_switches_from_jitter():
+    from inference import preprocess as pre
+
+    a0, b0 = pre.FaceBox(10, 10, 50, 50), pre.FaceBox(90, 10, 48, 48)
+    a1, b1 = pre.FaceBox(10, 10, 50, 49), pre.FaceBox(90, 10, 52, 52)
+    det = _ScriptedDetector([[a0, b0], [a0, b0], [a1, b1], [], [a0, b0]])
+    trials = study._collect_image_trials([_tile()], det, None, np.random.default_rng(0), 4,
+                                         names=["x.jpg"])
+    s = study.box_stability_summary(trials)
+    assert s["trials"] == 3 and s["lost"] == [["x.jpg", 2]]
+    assert abs(s["top_face_switch_rate"] - 1 / 3) < 1e-9
+    assert abs(s["matched_max_move_pct"] - 2.0) < 1e-9
+    assert abs(s["top_frac_over_1pct"] - 1 / 3) < 1e-9
+
+
+# --------------------------------------------------------------------------
+# J — the pooled statistic's blind spot, and the within-image diagnostic
+# --------------------------------------------------------------------------
+
+
+def _offset_corpus(n_images: int, k: int, *, spread: float, fixed_sd: float, free_sd: float):
+    """Images with very different baseline scores (``spread``) and a known
+    noise response inside each image: true within-image amplification is
+    ``free_sd / fixed_sd``."""
+    rng = np.random.default_rng(11)
+    out = []
+    for _ in range(n_images):
+        c = float(rng.normal(0.0, spread))
+        fixed = rng.normal(c, fixed_sd, size=k)
+        free = rng.normal(c, free_sd, size=k)
+        out.append(_image([_trial(fixed=float(f), free=float(fr)) for f, fr in zip(fixed, free)]))
+    return out
+
+
+def test_the_pooled_statistic_is_blind_when_images_differ_more_than_noise_moves_them():
+    """The documented statistic pools trials across images, so between-image
+    score variance enters both spreads and drives the ratio toward 1 however
+    unstable the detector is. Here the true within-image amplification is 50x
+    and the pooled ratio still reads about 1x — which would pass R13."""
+    trials = _offset_corpus(60, 11, spread=5.0, fixed_sd=0.001, free_sd=0.05)
+    pooled = study.amplification_ratio(*study.pool_amplification_scores(trials))
+    within = study.within_image_amplification(trials)
+    assert pooled < 1.1, pooled
+    assert 40.0 < within < 60.0, within
+
+
+def test_the_between_image_share_exposes_the_blind_spot():
+    trials = _offset_corpus(60, 11, spread=5.0, fixed_sd=0.001, free_sd=0.05)
+    share = study.between_image_variance_share(trials)
+    assert share["fixed"] > 0.999 and share["free"] > 0.99, share
+
+
+def test_within_and_pooled_agree_when_there_is_one_image():
+    """With a single fixture — the original 310x set-up — there is no
+    between-image variance and the two statistics are the same number."""
+    trials = _single_fixture_trials(k=11)
+    pooled = study.amplification_ratio(*study.pool_amplification_scores(trials))
+    assert abs(study.within_image_amplification(trials) - pooled) < 1e-9
+
+
+def test_within_image_amplification_pairs_trials_and_skips_lost_ones():
+    trials = [
+        _image([_trial(fixed=0.0, free=0.0), _trial(fixed=0.002, free=0.2), _trial(lost=True)]),
+        _image([_trial(fixed=5.0, free=5.0), _trial(fixed=5.002, free=5.2)]),
+    ]
+    assert abs(study.within_image_amplification(trials) - 100.0) < 1e-6
+
+
+def test_within_image_amplification_has_a_cluster_bootstrap_ci():
+    trials = _offset_corpus(30, 11, spread=1.0, fixed_sd=0.01, free_sd=0.03)
+    point, lo, hi = study.bootstrap_within_image_amplification_ci(trials, resamples=200, seed=0)
+    assert lo <= point <= hi and 2.0 < point < 4.5, (point, lo, hi)
+
+
+# --------------------------------------------------------------------------
 # I — end to end: measure() runs, records provenance, and a box that never
 #     moves gives amplification exactly 1 (plumbing, not R13 evidence)
 # --------------------------------------------------------------------------
@@ -411,6 +539,10 @@ def test_measure_runs_end_to_end_and_records_provenance():
     assert {"python", "numpy", "opencv", "onnxruntime"} <= set(result["environment"])
     assert result["n_images"] == 4 and result["total_trials"] == 20
     assert result["faces_lost"] == 0 and result["clean_detection_failures"] == 0
+    # one clean + K noisy detections per image are timed; the warm-up is not
+    assert result["latency_ms"]["scrfd"]["calls"] == 4 * (1 + 5)
+    assert result["latency_ms"]["haar_baseline"]["calls"] == 4
+    assert result["latency_ms"]["scrfd"]["median"] > 0
 
 
 def test_a_box_that_never_moves_amplifies_by_exactly_one():
@@ -422,6 +554,8 @@ def test_a_box_that_never_moves_amplifies_by_exactly_one():
     assert result["max_short_edge_move_pct"] == 0.0
     assert result["amplification"] == 1.0
     assert result["amplification_ci"] == (1.0, 1.0)
+    assert result["within_image_amplification"] == 1.0
+    assert result["within_image_amplification_ci"] == (1.0, 1.0)
 
 
 def test_the_evidence_record_is_written_when_requested():

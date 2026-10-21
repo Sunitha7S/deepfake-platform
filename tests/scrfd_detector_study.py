@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -124,6 +125,10 @@ def _resolve_inputs() -> tuple[str | None, str | None]:
 
 
 def _load_photos(photo_dir: str) -> list[np.ndarray]:
+    return [image for _, image in _load_named_photos(photo_dir)]
+
+
+def _load_named_photos(photo_dir: str) -> list[tuple[str, np.ndarray]]:
     import cv2
 
     paths = sorted(
@@ -131,13 +136,13 @@ def _load_photos(photo_dir: str) -> list[np.ndarray]:
         for p in Path(photo_dir).iterdir()
         if p.suffix.lower() in (".jpg", ".jpeg", ".png")
     )
-    images = []
+    out = []
     for p in paths:
         bgr = cv2.imread(str(p))
         if bgr is None:
             continue
-        images.append(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-    return images
+        out.append((p.name, cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)))
+    return out
 
 
 def _policy_for(model_path: str) -> pre.FaceSelectionPolicy:
@@ -160,12 +165,35 @@ def _crop_for_box(image: np.ndarray, box) -> np.ndarray:
     return image[y0:y1, x0:x1]
 
 
+def _ordered(boxes) -> list:
+    """The order ``detect_faces`` imposes: ``face_order_key``, largest first.
+    ``FaceDetector.detect`` promises no order (SCRFD emits confidence order), so
+    without this the study would track the most *confident* face rather than
+    the face the shipped pipeline scores."""
+    return sorted(boxes, key=pre.face_order_key)
+
+
+def _iou(a, b) -> float:
+    ix = max(0, min(a.x + a.width, b.x + b.width) - max(a.x, b.x))
+    iy = max(0, min(a.y + a.height, b.y + b.height) - max(a.y, b.y))
+    inter = ix * iy
+    union = a.width * a.height + b.width * b.height - inter
+    return inter / union if union else 0.0
+
+
+def _move_pct(before, after) -> float | None:
+    edge = min(before.width, before.height)
+    return 100.0 * abs(min(after.width, after.height) - edge) / edge if edge > 0 else None
+
+
 def _collect_image_trials(
     images: list[np.ndarray],
     detector,
     policy: pre.FaceSelectionPolicy,
     rng: np.random.Generator,
     k_realisations: int,
+    *,
+    names: list[str] | None = None,
 ) -> list[dict]:
     """Runs the acceptance-criterion procedure (docs/
     SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.1) once per ``(image, realisation)``
@@ -178,19 +206,20 @@ def _collect_image_trials(
     "fixed_logit": float | None, "free_logit": float | None}, ...]}``.
     """
     image_trials: list[dict] = []
-    for image in images:
-        boxes_before = detector.detect(image, policy=policy)
+    for idx, image in enumerate(images):
+        name = names[idx] if names else f"#{idx}"
+        boxes_before = _ordered(detector.detect(image, policy=policy))
         if not boxes_before:
             # Sec4.1 step 1: excluded from the amplification statistic, but
             # tracked as its own reportable fact — a clean image the shipped
             # detector cannot find a face in at all — not conflated with a
             # noise-induced loss.
             image_trials.append(
-                {"box0_present": False, "clean_detection_failure": True, "trials": []}
+                {"name": name, "box0_present": False, "clean_detection_failure": True,
+                 "trials": []}
             )
             continue
         box = boxes_before[0]
-        short_edge_before = min(box.width, box.height)
 
         trials: list[dict] = []
         for _ in range(k_realisations):
@@ -199,7 +228,7 @@ def _collect_image_trials(
             )
             noisy = np.clip(image.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
-            boxes_after = detector.detect(noisy, policy=policy)
+            boxes_after = _ordered(detector.detect(noisy, policy=policy))
             if not boxes_after:
                 trials.append(
                     {
@@ -211,22 +240,32 @@ def _collect_image_trials(
                 )
                 continue
             moved_box = boxes_after[0]
-            short_edge_after = min(moved_box.width, moved_box.height)
-            move_pct = (
-                100.0 * abs(short_edge_after - short_edge_before) / short_edge_before
-                if short_edge_before > 0
-                else None
-            )
+            # Diagnostics: did the pipeline's top face stay the same face, and
+            # how far did the *original* face's own box move?
+            matched = max(boxes_after, key=lambda b: _iou(box, b))
+            iou_top = _iou(box, moved_box)
             trials.append(
                 {
                     "lost": False,
-                    "short_edge_move_pct": move_pct,
+                    "short_edge_move_pct": _move_pct(box, moved_box),
                     "fixed_logit": surrogate_logit(_crop_for_box(noisy, box)),
                     "free_logit": surrogate_logit(_crop_for_box(noisy, moved_box)),
+                    "box": [moved_box.x, moved_box.y, moved_box.width, moved_box.height],
+                    "iou_top": iou_top,
+                    "top_switched": iou_top < 0.5,
+                    "matched_iou": _iou(box, matched),
+                    "matched_move_pct": _move_pct(box, matched),
                 }
             )
         image_trials.append(
-            {"box0_present": True, "clean_detection_failure": False, "trials": trials}
+            {
+                "name": name,
+                "box0_present": True,
+                "clean_detection_failure": False,
+                "box0": [box.x, box.y, box.width, box.height],
+                "faces_clean": len(boxes_before),
+                "trials": trials,
+            }
         )
     return image_trials
 
@@ -255,6 +294,105 @@ def amplification_ratio(fixed_scores: list[float], free_scores: list[float]) -> 
     fixed_spread = float(np.std(fixed_scores)) if fixed_scores else 0.0
     free_spread = float(np.std(free_scores)) if free_scores else 0.0
     return (free_spread / fixed_spread) if fixed_spread > 0 else float("nan")
+
+
+def _paired_groups(image_trials: list[dict]) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Per image, the (fixed, free) scores of realisations where both exist —
+    the same noisy pixels under two crops."""
+    groups = []
+    for img in image_trials:
+        pairs = [
+            (t["fixed_logit"], t["free_logit"])
+            for t in img["trials"]
+            if t["fixed_logit"] is not None and t["free_logit"] is not None
+        ]
+        if len(pairs) >= 2:
+            arr = np.asarray(pairs, dtype=np.float64)
+            groups.append((arr[:, 0], arr[:, 1]))
+    return groups
+
+
+def within_image_amplification(image_trials: list[dict]) -> float:
+    """Diagnostic, not the documented gate: the noise-induced spread around each
+    image's *own* mean, pooled across images (a one-way ANOVA within-group
+    standard deviation), free crop over fixed crop.
+
+    The documented statistic (:func:`amplification_ratio` over
+    :func:`pool_amplification_scores`) pools raw scores across images, so
+    between-image score variance adds to both spreads and pulls the ratio toward
+    1 regardless of detector stability. The original 310x was measured on one
+    fixture, where that term is zero; this statistic removes it, so it is the
+    like-for-like generalisation. With one image the two coincide."""
+    ss_fixed = ss_free = 0.0
+    for fixed, free in _paired_groups(image_trials):
+        ss_fixed += float(((fixed - fixed.mean()) ** 2).sum())
+        ss_free += float(((free - free.mean()) ** 2).sum())
+    return float(np.sqrt(ss_free / ss_fixed)) if ss_fixed > 0 else float("nan")
+
+
+def between_image_variance_share(image_trials: list[dict]) -> dict:
+    """Fraction of each pooled spread that comes from images differing from one
+    another rather than from noise. Near 1 means the documented pooled ratio
+    cannot see detector instability on this corpus."""
+    out = {}
+    groups = _paired_groups(image_trials)
+    for idx, name in ((0, "fixed"), (1, "free")):
+        if not groups:
+            out[name] = float("nan")
+            continue
+        allv = np.concatenate([g[idx] for g in groups])
+        total = float(((allv - allv.mean()) ** 2).sum())
+        within = sum(float(((g[idx] - g[idx].mean()) ** 2).sum()) for g in groups)
+        out[name] = 1.0 - within / total if total > 0 else float("nan")
+    return out
+
+
+def bootstrap_within_image_amplification_ci(
+    image_trials: list[dict],
+    *,
+    resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    alpha: float = DEFAULT_BOOTSTRAP_ALPHA,
+    seed: int = 0,
+) -> tuple[float, float, float]:
+    """Same cluster bootstrap as the gate statistic, over images."""
+    return _cluster_bootstrap_ci(
+        image_trials, within_image_amplification, resamples=resamples, alpha=alpha, seed=seed
+    )
+
+
+def box_stability_summary(image_trials: list[dict]) -> dict:
+    """Diagnostic breakdown of the box checks, not the documented gate.
+
+    Separates three different failures the gate statistics fold together: the
+    face lost outright; the pipeline's top-ranked face *switching identity*
+    (a selection instability — the verdict would describe another person);
+    and the *same* face's box jittering (a localisation instability — R13's
+    original mechanism). "Same face" means best-IoU >= 0.5 to the pre-noise
+    box."""
+    done = [(img, k, t) for img in image_trials for k, t in enumerate(img["trials"]) if not t["lost"]]
+    lost = [[img["name"], k] for img in image_trials for k, t in enumerate(img["trials"]) if t["lost"]]
+    top = np.array([t["short_edge_move_pct"] for _, _, t in done if t["short_edge_move_pct"] is not None])
+    same = [t for _, _, t in done if t["matched_iou"] >= 0.5]
+    matched = np.array([t["matched_move_pct"] for t in same if t["matched_move_pct"] is not None])
+
+    def pct(arr, q):
+        return float(np.percentile(arr, q)) if arr.size else 0.0
+
+    return {
+        "trials": len(done),
+        "lost": lost,
+        "clean_detection_failures": [img["name"] for img in image_trials if img["clean_detection_failure"]],
+        "top_face_switch_rate": (sum(t["top_switched"] for _, _, t in done) / len(done)) if done else 0.0,
+        "switched": [[img["name"], k] for img, k, t in done if t["top_switched"]],
+        "original_face_missing_rate": (1 - len(same) / len(done)) if done else 0.0,
+        "top_frac_over_1pct": float(np.mean(top > 1.0)) if top.size else 0.0,
+        "top_move_pct": {"median": pct(top, 50), "p95": pct(top, 95), "p99": pct(top, 99),
+                         "max": float(top.max()) if top.size else 0.0},
+        "matched_frac_over_1pct": float(np.mean(matched > 1.0)) if matched.size else 0.0,
+        "matched_move_pct": {"median": pct(matched, 50), "p95": pct(matched, 95),
+                             "p99": pct(matched, 99)},
+        "matched_max_move_pct": float(matched.max()) if matched.size else 0.0,
+    }
 
 
 def max_short_edge_move_pct(image_trials: list[dict]) -> float:
@@ -346,6 +484,46 @@ def face_loss_summary(image_trials: list[dict]) -> dict:
     }
 
 
+class _TimedDetector:
+    """Wall-clock per ``detect`` call, otherwise transparent."""
+
+    def __init__(self, inner) -> None:
+        self.inner = inner
+        self.ms: list[float] = []
+
+    def detect(self, image: np.ndarray, *, policy):
+        start = time.perf_counter()
+        boxes = self.inner.detect(image, policy=policy)
+        self.ms.append((time.perf_counter() - start) * 1000.0)
+        return boxes
+
+
+def _haar_latency_ms(images: list[np.ndarray]) -> list[float]:
+    """The shipped Haar detector on the same clean images, for comparison."""
+    haar, policy = pre.HaarDetector(), pre.default_face_selection()
+    if images:
+        haar.detect(images[0], policy=policy)  # cascade load is not latency
+    out = []
+    for image in images:
+        start = time.perf_counter()
+        haar.detect(image, policy=policy)
+        out.append((time.perf_counter() - start) * 1000.0)
+    return out
+
+
+def _latency_summary(ms: list[float]) -> dict:
+    if not ms:
+        return {"calls": 0}
+    arr = np.asarray(ms)
+    return {
+        "calls": int(arr.size),
+        "mean": float(arr.mean()),
+        "median": float(np.median(arr)),
+        "p95": float(np.percentile(arr, 95)),
+        "max": float(arr.max()),
+    }
+
+
 def _environment() -> dict:
     import platform
 
@@ -375,15 +553,24 @@ def measure(
     some caller cannot see — ``report`` does that, against the criterion
     quoted verbatim above."""
     rng = np.random.default_rng(seed)
-    detector = pre.SCRFDDetector(model_path)
     policy = _policy_for(model_path)
-    images = _load_photos(photo_dir)
+    named = _load_named_photos(photo_dir)
+    names, images = [n for n, _ in named], [i for _, i in named]
+    detector = _TimedDetector(pre.SCRFDDetector(model_path))
+    if images:
+        detector.inner.detect(images[0], policy=policy)  # session creation is not latency
 
-    image_trials = _collect_image_trials(images, detector, policy, rng, k_realisations)
+    image_trials = _collect_image_trials(
+        images, detector, policy, rng, k_realisations, names=names
+    )
+    haar_ms = _haar_latency_ms(images)
 
     fixed_scores, free_scores = pool_amplification_scores(image_trials)
     amp_point, amp_lo, amp_hi = bootstrap_amplification_ci(image_trials, seed=seed)
     edge_point, edge_lo, edge_hi = bootstrap_max_short_edge_ci(image_trials, seed=seed)
+    within_point, within_lo, within_hi = bootstrap_within_image_amplification_ci(
+        image_trials, seed=seed
+    )
     losses = face_loss_summary(image_trials)
 
     return {
@@ -396,6 +583,13 @@ def measure(
         "nms_iou_threshold": policy.nms_iou_threshold,
         "seed": seed,
         "environment": _environment(),
+        # docs/SCRFD_PROGRAM_DESIGN.md §6 point 4 / prerequisites plan §D.1
+        # item 10: SCRFD's forward-pass cost against Haar's cascade, same
+        # machine, same images. Not part of the R13 pass/fail.
+        "latency_ms": {
+            "scrfd": _latency_summary(detector.ms),
+            "haar_baseline": _latency_summary(haar_ms),
+        },
         "n_images": len(images),
         "k_realisations": k_realisations,
         "total_trials": losses["total_trials"],
@@ -408,6 +602,14 @@ def measure(
         "free_crop_spread": float(np.std(free_scores)) if free_scores else 0.0,
         "amplification": amp_point,
         "amplification_ci": (amp_lo, amp_hi),
+        # Diagnostics, not the documented gate (see within_image_amplification).
+        "within_image_amplification": within_point,
+        "within_image_amplification_ci": (within_lo, within_hi),
+        "between_image_variance_share": between_image_variance_share(image_trials),
+        "box_stability": box_stability_summary(image_trials),
+        # The per-trial record, so every figure above can be re-derived and
+        # every failure traced to an image. Written to the JSON evidence only.
+        "image_trials": image_trials,
     }
 
 
@@ -452,6 +654,31 @@ def report(result: dict) -> bool:
         f"(was {MEASURED_BASELINE_AMPLIFICATION}x)"
     )
     print(f"    95% bootstrap CI          : [{amp_lo:.2f}x, {amp_hi:.2f}x]")
+    if "within_image_amplification" in result:
+        w_lo, w_hi = result["within_image_amplification_ci"]
+        share = result["between_image_variance_share"]
+        print(
+            f"  diagnostic: within-image   : {result['within_image_amplification']:.2f}x "
+            f"(95% CI [{w_lo:.2f}x, {w_hi:.2f}x]) — between-image share of the pooled "
+            f"spread: fixed {share['fixed']:.3f}, free {share['free']:.3f}"
+        )
+    if "box_stability" in result:
+        bs = result["box_stability"]
+        print(
+            f"  diagnostic: top-face switch: {100 * bs['top_face_switch_rate']:.2f}% of trials "
+            f"({len(bs['switched'])}); original face missing {100 * bs['original_face_missing_rate']:.2f}%"
+        )
+        print(
+            f"  diagnostic: same-face move : median {bs['matched_move_pct']['median']:.2f}%, "
+            f"p99 {bs['matched_move_pct']['p99']:.2f}%, max {bs['matched_max_move_pct']:.2f}%, "
+            f"{100 * bs['matched_frac_over_1pct']:.1f}% of trials over 1%"
+        )
+    for name, stats in result["latency_ms"].items():
+        if stats.get("calls"):
+            print(
+                f"  latency {name:<18} : median {stats['median']:.1f} ms, "
+                f"p95 {stats['p95']:.1f} ms over {stats['calls']} calls"
+            )
 
     checks = {
         f">= {ACCEPTANCE_MIN_IMAGES} images": result["n_images"] >= ACCEPTANCE_MIN_IMAGES,

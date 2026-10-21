@@ -44,14 +44,25 @@ and the three license files on `raw.githubusercontent.com`:
 
 ### License acceptance record
 
-Not yet accepted. To be completed by the person accepting, before any fetch:
+```
+Accepted by: project owner      Date: 2026-10-17
+Environments: personal dev machine only; weights stored outside the repository
+Use: local non-commercial research / portfolio evaluation — no commercial use,
+     no redistribution of weights
+Package fetched: cheetah_l.zip (official model-zoo GitHub release)
+Package licence: MODEL.LICENSE cheetah_l-public-v1, grant "non-commercial"
+                 (signed; signature not verifiable — no published key)
+Detector member: det_10g.onnx
+  sha256 5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91
+  = the value in the package's upstream manifest.json (verified)
+Archive digest: not yet checked — download stalled at ~62 MB of 212 MB; the
+  detector was read from the partial file (CRC32-checked). Open item.
+```
 
-```
-Accepted by: <name>      Date: <YYYY-MM-DD>
-Environments: <e.g. personal dev machine only>
-Use: non-commercial research / portfolio — no commercial distribution
-Package fetched: <buffalo_l.zip | cheetah_l.zip>
-```
+**Unresolved licence-scope question:** the grant says "non-commercial" without
+defining it. Publishing aggregate measurement results in a public portfolio is
+consistent with it, but whether a portfolio used in a job search counts as
+non-commercial is not stated by the licence text and is not resolved here.
 
 ---
 

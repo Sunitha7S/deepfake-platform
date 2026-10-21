@@ -25,6 +25,13 @@ checkable steps by this document.
 
 **No code was written to produce this document.**
 
+### Outcome (2026-10-17, later the same day)
+
+P1–P4 completed: licence accepted for local non-commercial evaluation, detector
+verified, corpus acquired and verified, R13 measured twice. **R13 does not
+clear — no-go for cutover.** See `docs/SCRFD_R13_MEASUREMENT_EVIDENCE.md`. The
+table below is the state before the measurement.
+
 ### Status update (2026-10-17)
 
 | # | Status |
