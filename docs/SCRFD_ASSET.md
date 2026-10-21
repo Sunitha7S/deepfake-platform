@@ -55,8 +55,12 @@ Package licence: MODEL.LICENSE cheetah_l-public-v1, grant "non-commercial"
 Detector member: det_10g.onnx
   sha256 5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91
   = the value in the package's upstream manifest.json (verified)
-Archive digest: not yet checked — download stalled at ~62 MB of 212 MB; the
-  detector was read from the partial file (CRC32-checked). Open item.
+Archive digest: verified 2026-10-21 — cheetah_l.zip, 211,538,148 bytes,
+  sha256 df81a05801731af706836384124a35ea02430f27edd08023532e1bee21cabc8d
+  = GitHub's published release-asset digest. The det_10g.onnx, manifest.json
+  and MODEL.LICENSE extracted from the verified archive are byte-identical to
+  the copies used for the 2026-10-17 measurement (which had been read from a
+  partial download and CRC32-checked).
 ```
 
 **Unresolved licence-scope question:** the grant says "non-commercial" without
