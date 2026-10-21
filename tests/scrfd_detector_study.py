@@ -20,6 +20,23 @@ SCRFD_PROGRAM_DESIGN.md`` Phase 3), not this batch's — this script reports
 honestly, and exits without a verdict, when either input is missing rather
 than fabricating a result.
 
+METHODOLOGY (corrected per ``docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md``)
+-----------------------------------------------------------------------
+The amplification statistic is a *pooled, within-image, multi-realisation*
+ratio-of-spreads (Sec4.1/Sec4.2 of the plan): for each image, ``k_realisations``
+(>= 11, matching the original 310x measurement's own realisation count,
+``docs/INFERENCE_DETERMINISM.md`` Sec5.1) independent noise draws are taken, and
+every ``(image, realisation)`` trial's fixed-crop and free-crop scores are
+pooled across the whole corpus before the ratio is computed — not one draw
+per image with the ratio taken across images (that conflates cross-image
+content diversity with noise-induced instability; ``docs/
+SCRFD_PHASE3_MEASUREMENT_PLAN.md`` Sec2 is the full derivation of why the
+prior, one-realisation-per-image version of this script did not compute the
+criterion's own statistic). A cluster bootstrap (resampling whole images,
+not individual trials, Sec4.3) gives a 95% CI on both the amplification
+ratio and the max short-edge movement; the amplification check gates on the
+CI's *upper bound*, not the point estimate (Sec4.4).
+
 WHY THE SURROGATE, NOT STUBBACKEND
 -----------------------------------
 ``StubBackend`` hashes crop bytes, so it would report near-100%
@@ -39,10 +56,15 @@ INPUTS THIS SCRIPT NEEDS AND DOES NOT SUPPLY
   (JPEG/PNG), a second, smaller acquisition question
   (``docs/SCRFD_PHASE2_DESIGN.md`` Sec2.8 point 1) this script also does not
   resolve.
+* ``$DFP_SCRFD_STUDY_SEED`` (optional, default ``0``) — the noise-generator
+  seed. ``docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md`` Sec5.4 recommends running
+  at least twice with different seeds and confirming both runs' CIs are
+  consistent before treating a result as Phase-4-gating evidence.
 
-Neither is committed to this repository. Running this script without both
-set prints what is missing and exits 0 (a missing input is not a test
-failure) rather than exercising a code path with no real data behind it.
+Neither of the first two is committed to this repository. Running this
+script without both set prints what is missing and exits 0 (a missing input
+is not a test failure) rather than exercising a code path with no real data
+behind it.
 """
 
 from __future__ import annotations
@@ -64,6 +86,17 @@ ACCEPTANCE_MIN_IMAGES = 200
 ACCEPTANCE_MAX_BOX_MOVEMENT_PCT = 1.0
 ACCEPTANCE_MAX_AMPLIFICATION = 10.0
 MEASURED_BASELINE_AMPLIFICATION = 310.0
+
+# docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec3.1/Sec4.1: matches the original
+# measurement's own realisation count, so the pooled ratio is an
+# apples-to-apples comparison to "310x", not merely a differently-shaped
+# number that also happens to be called "amplification".
+DEFAULT_K_REALISATIONS = 11
+
+# docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.3: reuses
+# evaluation/thresholds.py's bootstrap_threshold_ci defaults exactly.
+DEFAULT_BOOTSTRAP_RESAMPLES = 2000
+DEFAULT_BOOTSTRAP_ALPHA = 0.05
 
 
 def head(title: str) -> None:
@@ -119,60 +152,230 @@ def _crop_for_box(image: np.ndarray, box) -> np.ndarray:
     return image[y0:y1, x0:x1]
 
 
-def measure(model_path: str, photo_dir: str, *, seed: int = 0) -> dict:
-    """Runs the acceptance-criterion procedure (docs/SCRFD_PHASE2_DESIGN.md
-    Sec2.8) and returns the measured figures. Does not itself decide pass/fail
-    against a hardcoded number some caller cannot see — ``report`` does that,
-    against the criterion quoted verbatim above."""
+def _collect_image_trials(
+    images: list[np.ndarray],
+    detector,
+    policy: pre.FaceSelectionPolicy,
+    rng: np.random.Generator,
+    k_realisations: int,
+) -> list[dict]:
+    """Runs the acceptance-criterion procedure (docs/
+    SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.1) once per ``(image, realisation)``
+    pair. Returns one dict per input image, each carrying its own list of
+    per-realisation trial dicts — kept grouped by image (not flattened) so
+    callers can cluster-bootstrap by image (Sec4.3) rather than by trial.
+
+    Each image dict: ``{"box0_present": bool, "clean_detection_failure":
+    bool, "trials": [{"lost": bool, "short_edge_move_pct": float | None,
+    "fixed_logit": float | None, "free_logit": float | None}, ...]}``.
+    """
+    image_trials: list[dict] = []
+    for image in images:
+        boxes_before = detector.detect(image, policy=policy)
+        if not boxes_before:
+            # Sec4.1 step 1: excluded from the amplification statistic, but
+            # tracked as its own reportable fact — a clean image the shipped
+            # detector cannot find a face in at all — not conflated with a
+            # noise-induced loss.
+            image_trials.append(
+                {"box0_present": False, "clean_detection_failure": True, "trials": []}
+            )
+            continue
+        box = boxes_before[0]
+        short_edge_before = min(box.width, box.height)
+
+        trials: list[dict] = []
+        for _ in range(k_realisations):
+            noise = rng.integers(
+                -ACCEPTANCE_NOISE_LSB, ACCEPTANCE_NOISE_LSB + 1, size=image.shape, dtype=np.int16
+            )
+            noisy = np.clip(image.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+
+            boxes_after = detector.detect(noisy, policy=policy)
+            if not boxes_after:
+                trials.append(
+                    {
+                        "lost": True,
+                        "short_edge_move_pct": None,
+                        "fixed_logit": None,
+                        "free_logit": None,
+                    }
+                )
+                continue
+            moved_box = boxes_after[0]
+            short_edge_after = min(moved_box.width, moved_box.height)
+            move_pct = (
+                100.0 * abs(short_edge_after - short_edge_before) / short_edge_before
+                if short_edge_before > 0
+                else None
+            )
+            trials.append(
+                {
+                    "lost": False,
+                    "short_edge_move_pct": move_pct,
+                    "fixed_logit": surrogate_logit(_crop_for_box(noisy, box)),
+                    "free_logit": surrogate_logit(_crop_for_box(noisy, moved_box)),
+                }
+            )
+        image_trials.append(
+            {"box0_present": True, "clean_detection_failure": False, "trials": trials}
+        )
+    return image_trials
+
+
+def pool_amplification_scores(image_trials: list[dict]) -> tuple[list[float], list[float]]:
+    """``(fixed_scores, free_scores)``, pooled over every ``(i, k)`` trial
+    that has a computable score (docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md
+    Sec4.2). A realisation that lost the face contributes to neither pool for
+    that trial only — not imputed."""
+    fixed_scores: list[float] = []
+    free_scores: list[float] = []
+    for img in image_trials:
+        for trial in img["trials"]:
+            if trial["fixed_logit"] is not None:
+                fixed_scores.append(trial["fixed_logit"])
+            if trial["free_logit"] is not None:
+                free_scores.append(trial["free_logit"])
+    return fixed_scores, free_scores
+
+
+def amplification_ratio(fixed_scores: list[float], free_scores: list[float]) -> float:
+    """``std(free) / std(fixed)`` — the same ratio-of-spreads formula the
+    original 310x measurement used (docs/INFERENCE_DETERMINISM.md Sec5A(c)),
+    applied to a pooled multi-image, multi-realisation sample instead of one
+    fixture's 11 realisations."""
+    fixed_spread = float(np.std(fixed_scores)) if fixed_scores else 0.0
+    free_spread = float(np.std(free_scores)) if free_scores else 0.0
+    return (free_spread / fixed_spread) if fixed_spread > 0 else float("nan")
+
+
+def max_short_edge_move_pct(image_trials: list[dict]) -> float:
+    """``max`` over every ``(i, k)`` trial of the short-edge movement percent
+    (docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.4)."""
+    moves = [
+        trial["short_edge_move_pct"]
+        for img in image_trials
+        for trial in img["trials"]
+        if trial["short_edge_move_pct"] is not None
+    ]
+    return max(moves) if moves else 0.0
+
+
+def _cluster_bootstrap_ci(
+    image_trials: list[dict],
+    statistic_fn,
+    *,
+    resamples: int,
+    alpha: float,
+    seed: int,
+) -> tuple[float, float, float]:
+    """Resamples whole images with replacement (each resampled image brings
+    its full set of realisations, not a re-drawn subset), recomputes
+    ``statistic_fn`` on the resample, and returns ``(point, lo, hi)`` at the
+    ``alpha/2`` and ``1 - alpha/2`` percentiles — the same shape
+    ``evaluation/thresholds.bootstrap_threshold_ci`` returns, adapted to
+    resample images rather than individual observations because
+    realisations within one image are correlated (docs/
+    SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.3)."""
+    point = statistic_fn(image_trials)
+    rng = np.random.default_rng(seed)
+    n = len(image_trials)
+    draws = np.empty(resamples, dtype=np.float64)
+    for i in range(resamples):
+        idx = rng.integers(0, n, size=n)
+        resampled = [image_trials[j] for j in idx]
+        draws[i] = statistic_fn(resampled)
+    lo, hi = np.quantile(draws, [alpha / 2.0, 1.0 - alpha / 2.0])
+    return float(point), float(lo), float(hi)
+
+
+def bootstrap_amplification_ci(
+    image_trials: list[dict],
+    *,
+    resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    alpha: float = DEFAULT_BOOTSTRAP_ALPHA,
+    seed: int = 0,
+) -> tuple[float, float, float]:
+    """``(point, lo, hi)`` cluster-bootstrap CI on the pooled amplification
+    ratio (docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.3)."""
+
+    def statistic(trials: list[dict]) -> float:
+        return amplification_ratio(*pool_amplification_scores(trials))
+
+    return _cluster_bootstrap_ci(image_trials, statistic, resamples=resamples, alpha=alpha, seed=seed)
+
+
+def bootstrap_max_short_edge_ci(
+    image_trials: list[dict],
+    *,
+    resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    alpha: float = DEFAULT_BOOTSTRAP_ALPHA,
+    seed: int = 0,
+) -> tuple[float, float, float]:
+    """``(point, lo, hi)`` cluster-bootstrap CI on the max short-edge-move
+    statistic — "the same cluster-bootstrap CI applies to the max-short-edge-
+    movement statistic for the same correlation reason" (docs/
+    SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.3)."""
+    return _cluster_bootstrap_ci(
+        image_trials, max_short_edge_move_pct, resamples=resamples, alpha=alpha, seed=seed
+    )
+
+
+def face_loss_summary(image_trials: list[dict]) -> dict:
+    """Trial-level loss accounting over N x K trials, the clean-image
+    detection-failure count tracked separately (Sec4.1 step 1), and the
+    rule-of-three 95% upper bound on the true per-trial loss rate (Sec3.1) —
+    "reported alongside the zero, not left implicit"."""
+    total_trials = sum(len(img["trials"]) for img in image_trials)
+    lost_trials = sum(1 for img in image_trials for trial in img["trials"] if trial["lost"])
+    clean_detection_failures = sum(1 for img in image_trials if img["clean_detection_failure"])
+    rule_of_three_upper_bound_pct = (300.0 / total_trials) if total_trials else float("nan")
+    return {
+        "total_trials": total_trials,
+        "lost_trials": lost_trials,
+        "clean_detection_failures": clean_detection_failures,
+        "rule_of_three_upper_bound_pct": rule_of_three_upper_bound_pct,
+    }
+
+
+def measure(
+    model_path: str,
+    photo_dir: str,
+    *,
+    seed: int = 0,
+    k_realisations: int = DEFAULT_K_REALISATIONS,
+) -> dict:
+    """Runs the acceptance-criterion procedure (docs/
+    SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.1-Sec4.3) and returns the measured
+    figures, pooled across every image and realisation and bootstrapped for
+    a 95% CI. Does not itself decide pass/fail against a hardcoded number
+    some caller cannot see — ``report`` does that, against the criterion
+    quoted verbatim above."""
     rng = np.random.default_rng(seed)
     detector = pre.SCRFDDetector(model_path)
     policy = _policy_for(model_path)
     images = _load_photos(photo_dir)
 
-    faces_lost = 0
-    short_edge_moves_pct: list[float] = []
-    fixed_crop_logits: list[float] = []
-    free_crop_logits: list[float] = []
+    image_trials = _collect_image_trials(images, detector, policy, rng, k_realisations)
 
-    for image in images:
-        boxes_before = detector.detect(image, policy=policy)
-        if not boxes_before:
-            continue
-        box = boxes_before[0]
-
-        noise = rng.integers(
-            -ACCEPTANCE_NOISE_LSB, ACCEPTANCE_NOISE_LSB + 1, size=image.shape, dtype=np.int16
-        )
-        noisy = np.clip(image.astype(np.int16) + noise, 0, 255).astype(np.uint8)
-
-        boxes_after = detector.detect(noisy, policy=policy)
-        if not boxes_after:
-            faces_lost += 1
-            continue
-        moved_box = boxes_after[0]
-
-        short_edge_before = min(box.width, box.height)
-        short_edge_after = min(moved_box.width, moved_box.height)
-        if short_edge_before > 0:
-            short_edge_moves_pct.append(
-                100.0 * abs(short_edge_after - short_edge_before) / short_edge_before
-            )
-
-        fixed_crop_logits.append(surrogate_logit(_crop_for_box(noisy, box)))
-        free_crop_logits.append(surrogate_logit(_crop_for_box(noisy, moved_box)))
-
-    n = len(images)
-    fixed_spread = float(np.std(fixed_crop_logits)) if fixed_crop_logits else 0.0
-    free_spread = float(np.std(free_crop_logits)) if free_crop_logits else 0.0
-    amplification = (free_spread / fixed_spread) if fixed_spread > 0 else float("nan")
+    fixed_scores, free_scores = pool_amplification_scores(image_trials)
+    amp_point, amp_lo, amp_hi = bootstrap_amplification_ci(image_trials, seed=seed)
+    edge_point, edge_lo, edge_hi = bootstrap_max_short_edge_ci(image_trials, seed=seed)
+    losses = face_loss_summary(image_trials)
 
     return {
-        "n_images": n,
-        "faces_lost": faces_lost,
-        "max_short_edge_move_pct": max(short_edge_moves_pct) if short_edge_moves_pct else 0.0,
-        "fixed_crop_spread": fixed_spread,
-        "free_crop_spread": free_spread,
-        "amplification": amplification,
+        "n_images": len(images),
+        "k_realisations": k_realisations,
+        "total_trials": losses["total_trials"],
+        "clean_detection_failures": losses["clean_detection_failures"],
+        "faces_lost": losses["lost_trials"],
+        "rule_of_three_upper_bound_pct": losses["rule_of_three_upper_bound_pct"],
+        "max_short_edge_move_pct": edge_point,
+        "max_short_edge_move_ci": (edge_lo, edge_hi),
+        "fixed_crop_spread": float(np.std(fixed_scores)) if fixed_scores else 0.0,
+        "free_crop_spread": float(np.std(free_scores)) if free_scores else 0.0,
+        "amplification": amp_point,
+        "amplification_ci": (amp_lo, amp_hi),
     }
 
 
@@ -187,13 +390,29 @@ def report(result: dict) -> bool:
         "images: no face lost, and the box short edge moving <= 1%. "
         "Amplification below 10x, from the measured 310x.'"
     )
-    print(f"\n  images measured        : {result['n_images']}")
-    print(f"  faces lost             : {result['faces_lost']}")
-    print(f"  max short-edge move    : {result['max_short_edge_move_pct']:.3f}%")
+    amp_lo, amp_hi = result["amplification_ci"]
+    edge_lo, edge_hi = result["max_short_edge_move_ci"]
+    print(f"\n  images measured           : {result['n_images']}")
+    print(f"  realisations per image     : {result['k_realisations']}")
+    print(f"  total trials (N x K)       : {result['total_trials']}")
     print(
-        f"  amplification          : {result['amplification']:.2f}x "
+        f"  clean detection failures   : {result['clean_detection_failures']} "
+        "(box_0 not found on clean pixels; excluded from amplification, tracked separately)"
+    )
+    print(f"  faces lost under noise     : {result['faces_lost']} of {result['total_trials']} trials")
+    print(
+        f"  rule-of-three upper bound  : {result['rule_of_three_upper_bound_pct']:.3f}% "
+        "(95% bound on the true per-trial loss rate, given the observed losses)"
+    )
+    print(
+        f"  max short-edge move        : {result['max_short_edge_move_pct']:.3f}%  "
+        f"(95% bootstrap CI [{edge_lo:.3f}%, {edge_hi:.3f}%])"
+    )
+    print(
+        f"  amplification              : {result['amplification']:.2f}x "
         f"(was {MEASURED_BASELINE_AMPLIFICATION}x)"
     )
+    print(f"    95% bootstrap CI          : [{amp_lo:.2f}x, {amp_hi:.2f}x]")
 
     checks = {
         f">= {ACCEPTANCE_MIN_IMAGES} images": result["n_images"] >= ACCEPTANCE_MIN_IMAGES,
@@ -201,7 +420,11 @@ def report(result: dict) -> bool:
         "short edge move <= 1%": (
             result["max_short_edge_move_pct"] <= ACCEPTANCE_MAX_BOX_MOVEMENT_PCT
         ),
-        "amplification < 10x": result["amplification"] < ACCEPTANCE_MAX_AMPLIFICATION,
+        # docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec4.4: gates on the CI's
+        # upper bound, a strengthening of the literal criterion text — a
+        # point estimate under 10x with an upper CI bound over it is not a
+        # number a cutover decision should treat as cleared.
+        "amplification CI upper bound < 10x": amp_hi < ACCEPTANCE_MAX_AMPLIFICATION,
     }
     print()
     for name, passed in checks.items():
@@ -224,9 +447,16 @@ def main() -> int:
         )
         return 0
 
-    result = measure(model_path, photo_dir)
+    seed = int(os.environ.get("DFP_SCRFD_STUDY_SEED", "0"))
+    result = measure(model_path, photo_dir, seed=seed)
     cleared = report(result)
     head("Result")
+    print(f"  seed used: {seed}")
+    print(
+        "  Per docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec5.4: run at least twice "
+        "with different $DFP_SCRFD_STUDY_SEED values and confirm both runs' "
+        "CIs are consistent before treating this as Phase-4-gating evidence."
+    )
     print(
         "  CLEARS the acceptance criterion"
         if cleared
