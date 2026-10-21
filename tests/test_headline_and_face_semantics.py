@@ -93,8 +93,11 @@ ROOT = Path(__file__).resolve().parent.parent
 # face-selection ``19559387`` -> ``251d22e9`` — because the crop-geometry knobs
 # entered the identity. S8 Batch 23 (R29) moved it again — ``251d22e9`` ->
 # ``e629642c`` — because the ``.f.`` segment became the composite of the face
-# and video selection policies. R20/R22 remain prose-only; this is the collateral update.
-_EXPECTED_EFFECTIVE = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
+# and video selection policies. SCRFD Integration Program, Phase 2 moved it
+# again — ``e629642c`` -> ``f8244ad0`` — FaceSelectionPolicy gained
+# confidence_threshold/nms_iou_threshold (docs/SCRFD_PHASE2_SPEC_RESOLUTION.md
+# Decision 7). R20/R22 remain prose-only; this is the collateral update.
+_EXPECTED_EFFECTIVE = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
 
 
 # --------------------------------------------------------------------------
@@ -555,7 +558,7 @@ def test_r22_and_r20_share_the_same_unmoved_identity():
     identity) — an unrelated change — so this pins the current value and that
     R20/R22 did not contribute to it.
     """
-    assert _EXPECTED_EFFECTIVE == "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
+    assert _EXPECTED_EFFECTIVE == "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
 
 
 # --------------------------------------------------------------------------

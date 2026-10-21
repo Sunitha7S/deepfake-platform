@@ -574,14 +574,17 @@ def test_batch_22_moved_the_identity_not_the_pixels():
     assert POLICY.crop_margin == 1.3
     assert POLICY.crop_shape == "square-longest-edge"
 
-    # The identity moved, once, to the Batch 22 values.
-    assert POLICY.identity == "251d22e9", "the face-selection identity is not the B22 value"
+    # The identity moved to the Batch 22 values, then again in the SCRFD
+    # Integration Program Phase 2 (confidence_threshold/nms_iou_threshold
+    # added, both None under Haar — docs/SCRFD_PHASE2_SPEC_RESOLUTION.md
+    # Decision 7).
+    assert POLICY.identity == "b0591be3", "the face-selection identity is not the Phase-2 value"
     # The *face* policy identity did not move in B23; the ``.f.`` segment did,
     # because B23 (R29) made it the composite of the face and video selection
     # policies. See test_video_selection_identity.py.
     assert model_identity_of(STUB_ENGINE_VERSION) == (
-        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
-    ), "the model identity is not the B23 value"
+        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
+    ), "the model identity is not the current (Phase-2) value"
     assert ".d." in STUB_ENGINE_VERSION
 
     # Output-identical: the shipped crop and resize produce the same bytes as the

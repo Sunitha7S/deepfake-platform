@@ -459,7 +459,11 @@ def test_fuse_takes_a_single_branch_set():
 # S8 Batch 23 (R29): the ``.f.`` segment became the composite of the face and
 # video selection policies (``251d22e9`` -> ``e629642c``). Branch B semantics
 # were not touched; this is the collateral pin update.
-_EXPECTED_EFFECTIVE = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
+# SCRFD Integration Program, Phase 2: FaceSelectionPolicy gained
+# confidence_threshold/nms_iou_threshold (``e629642c`` -> ``f8244ad0``,
+# docs/SCRFD_PHASE2_SPEC_RESOLUTION.md Decision 7). Branch B semantics were
+# not touched; this is the collateral pin update.
+_EXPECTED_EFFECTIVE = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
 
 
 def test_no_identity_string_moves():

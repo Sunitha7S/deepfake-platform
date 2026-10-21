@@ -85,6 +85,18 @@ B23_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.a
 # shape rather than silently retargeting to whatever the current literal is.
 B26_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
 
+# SCRFD Integration Program, Phase 2 (docs/SCRFD_PHASE2_SPEC_RESOLUTION.md
+# Decision 7): FaceSelectionPolicy gained confidence_threshold/
+# nms_iou_threshold (both None under Haar). Unlike B23, the *face* policy
+# identity itself moves this time (251d22e9 -> b0591be3) — a structural move,
+# a new key in the fingerprinted dict, not a value relabelling — and the
+# composite .f. segment moves with it. These are the *current* values, unlike
+# the B22/B23/B26 constants above, which stay frozen for cross-era parsing.
+PHASE2_FACE_POLICY_IDENTITY = "b0591be3"
+PHASE2_SELECTION_IDENTITY = "f8244ad0"
+PHASE2_MODEL_IDENTITY = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
+PHASE2_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0.d.c9d4025c"
+
 # A fixed run of the shipped policy through the synthetic clip below. If pooling
 # or sampling logic moves, this moves with it — the output-identical guarantee,
 # pinned.
@@ -310,7 +322,7 @@ def test_the_shipped_video_bundle_did_not_move():
     literal, ``sampling`` is the N4-corrected value, and ``p_fake`` is the pinned
     number. Every field names current behaviour verbatim."""
     _, bundle = _analyse(SHIPPED)
-    assert bundle.model.version == STUB_ENGINE_VERSION == B26_STUB_ENGINE_VERSION
+    assert bundle.model.version == STUB_ENGINE_VERSION == PHASE2_STUB_ENGINE_VERSION
     assert bundle.video.sampling == "uniform"  # N4: was "uniform+adaptive" in fixtures
     assert bundle.video.pooling == "topk_mean"
     assert bundle.p_fake == SHIPPED_P_FAKE, (
@@ -322,7 +334,7 @@ def test_the_shipped_video_bundle_did_not_move():
 def test_the_selection_identity_is_the_composite():
     face = pre.default_face_selection()
     combined = pre.selection_identity(face, SHIPPED)
-    assert combined == B23_SELECTION_IDENTITY
+    assert combined == PHASE2_SELECTION_IDENTITY
     assert combined != face.identity, "the .f. segment is still just the face policy"
     assert combined != SHIPPED.identity
     assert parse_model_version(STUB_ENGINE_VERSION).face_selection == combined
@@ -335,7 +347,7 @@ def test_batch_23_moved_only_the_selection_identity():
 
     root = Path(__file__).resolve().parent.parent
     snap = (root / "backend/openapi.snapshot.json").read_text(encoding="utf-8")
-    assert B23_SELECTION_IDENTITY not in snap and "wacdd9240" not in snap
+    assert PHASE2_SELECTION_IDENTITY not in snap and "wacdd9240" not in snap
     schema_files = list((root / "schema_out").glob("*.json"))
     assert len(schema_files) >= 10
     for f in schema_files:
@@ -346,11 +358,12 @@ def test_batch_23_moved_only_the_selection_identity():
     assert parts.weights == "stub-0-wacdd9240"
     assert parts.calibration == "739c3fec"
     assert parts.gate == "ae232cba"
-    assert parts.face_selection == B23_SELECTION_IDENTITY
-    assert STUB_ENGINE_VERSION.endswith(".d.c9d4025c")  # R30, Batch 26
-    assert model_identity_of(STUB_ENGINE_VERSION) == B23_MODEL_IDENTITY
-    # the face policy identity itself is unchanged
-    assert pre.default_face_selection().identity == "251d22e9"
+    assert parts.face_selection == PHASE2_SELECTION_IDENTITY
+    assert STUB_ENGINE_VERSION.endswith(".d.c9d4025c")  # R30, Batch 26 (.d. unmoved by Phase 2)
+    assert model_identity_of(STUB_ENGINE_VERSION) == PHASE2_MODEL_IDENTITY
+    # the face policy identity moved again in SCRFD Integration Program Phase 2
+    # (see test_the_face_policy_identity_is_unchanged's own updated docstring)
+    assert pre.default_face_selection().identity == PHASE2_FACE_POLICY_IDENTITY
 
 
 def test_parse_model_version_is_total_across_the_b23_string():
@@ -445,10 +458,20 @@ def test_r29_is_tracked_in_the_reproducibility_audit():
 
 
 def test_the_face_policy_identity_is_unchanged():
-    """PA12 — B23 moved the *combined* ``.f.`` segment, not the face policy. The
-    face policy fingerprint stays ``251d22e9`` exactly."""
-    assert pre.default_face_selection().identity == "251d22e9"
-    assert pre.default_face_selection().identity != B23_SELECTION_IDENTITY
+    """PA12 — B23 moved the *combined* ``.f.`` segment, not the face policy; the
+    face policy fingerprint stayed ``251d22e9`` through B23 and B26.
+
+    **This is scoped to those batches, not a permanent invariant.** SCRFD
+    Integration Program, Phase 2 (``docs/SCRFD_PHASE2_SPEC_RESOLUTION.md``
+    Decision 7) is the first batch to move the face policy identity again —
+    ``FaceSelectionPolicy`` gained two real fields (``confidence_threshold``/
+    ``nms_iou_threshold``), not a relabelling, so PA12's original claim
+    ("B23 did not touch the face policy") still holds for B23 specifically;
+    it was never a claim that nothing ever would again. Updated here rather
+    than left green-but-false.
+    """
+    assert pre.default_face_selection().identity == PHASE2_FACE_POLICY_IDENTITY
+    assert pre.default_face_selection().identity != PHASE2_SELECTION_IDENTITY
 
 
 def test_image_and_video_engines_agree_when_only_one_policy_is_overridden():
@@ -484,7 +507,7 @@ def test_selection_identity_of_returns_the_composite_and_is_the_honest_name():
     combined = pre.selection_identity(
         pre.default_face_selection(), pre.default_video_selection()
     )
-    assert selection_identity_of(STUB_ENGINE_VERSION) == combined == B23_SELECTION_IDENTITY
+    assert selection_identity_of(STUB_ENGINE_VERSION) == combined == PHASE2_SELECTION_IDENTITY
     assert selection_identity_of(STUB_ENGINE_VERSION) != pre.default_face_selection().identity
     # the two names are exactly equivalent, always
     assert selection_identity_of(STUB_ENGINE_VERSION) == face_selection_identity_of(

@@ -90,10 +90,13 @@ ROOT = Path(__file__).resolve().parent.parent
 # S8 Batch 22 (R25) moved the MODEL half — weights ``w7f45fada`` -> ``wacdd9240``
 # and face-selection ``19559387`` -> ``251d22e9``. S8 Batch 23 (R29) moved the
 # ``.f.`` segment again — ``251d22e9`` -> ``e629642c`` — when it became the
-# composite of the face and video selection policies. Batch 20 (this suite's
+# composite of the face and video selection policies. SCRFD Integration
+# Program, Phase 2 moved it again — ``e629642c`` -> ``f8244ad0`` —
+# FaceSelectionPolicy gained confidence_threshold/nms_iou_threshold
+# (docs/SCRFD_PHASE2_SPEC_RESOLUTION.md Decision 7). Batch 20 (this suite's
 # subject) still touched only the ``.d.`` decode segment; this is the collateral
 # update so ``model_identity_of`` is checked against the current literal.
-MODEL_ID = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
+MODEL_ID = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
 TH = ThresholdInfo.at_margin(value=0.62, margin=DEFAULT_LOG_ODDS_MARGIN, target_fpr=0.02)
 
 

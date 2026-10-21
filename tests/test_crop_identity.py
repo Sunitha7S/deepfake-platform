@@ -68,6 +68,18 @@ B23_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.a
 # rather than silently retargeting to whatever the current literal is.
 B26_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
 
+# SCRFD Integration Program, Phase 2 (docs/SCRFD_PHASE2_SPEC_RESOLUTION.md
+# Decision 7): FaceSelectionPolicy gained confidence_threshold/
+# nms_iou_threshold (both None under Haar). The *face* policy identity moved
+# this time (251d22e9 -> b0591be3) — unlike B23, this is a structural move
+# (a new key in the fingerprinted dict), not a value-relabelling — and the
+# composite .f. segment moved with it. These are the *current* values, unlike
+# the B22/B23/B26 constants above, which stay frozen for cross-era parsing.
+PHASE2_POLICY_IDENTITY = "b0591be3"
+PHASE2_SELECTION_IDENTITY = "f8244ad0"
+PHASE2_MODEL_IDENTITY = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
+PHASE2_STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0.d.c9d4025c"
+
 
 def _spec(input_size: int) -> ModelSpec:
     return (
@@ -358,20 +370,20 @@ def test_the_migration_moved_only_what_it_should():
     for f in schema_files:
         assert "stub-0" not in f.read_text(encoding="utf-8")
 
-    # The *face* policy identity did not move; the ``.f.`` segment became the
-    # face+video composite in B23, and the model identity / engine literal moved
-    # with it. B26 (R30) then moved only the ``.d.`` tail.
-    assert POLICY.identity == B22_POLICY_IDENTITY
-    assert model_identity_of(STUB_ENGINE_VERSION) == B23_MODEL_IDENTITY
-    assert STUB_ENGINE_VERSION == B26_STUB_ENGINE_VERSION
+    # The *face* policy identity did not move between B22 and B23; the ``.f.``
+    # segment became the face+video composite in B23. SCRFD Integration
+    # Program Phase 2 then moved both: FaceSelectionPolicy gained two fields.
+    assert POLICY.identity == PHASE2_POLICY_IDENTITY
+    assert model_identity_of(STUB_ENGINE_VERSION) == PHASE2_MODEL_IDENTITY
+    assert STUB_ENGINE_VERSION == PHASE2_STUB_ENGINE_VERSION
 
     # weights, calibration and gate segments did not move.
     parts = parse_model_version(STUB_ENGINE_VERSION)
     assert parts.weights == "stub-0-wacdd9240"
     assert parts.calibration == "739c3fec"
     assert parts.gate == "ae232cba"
-    assert parts.face_selection == B23_SELECTION_IDENTITY
-    assert STUB_ENGINE_VERSION.endswith(".d.c9d4025c")  # R30, Batch 26
+    assert parts.face_selection == PHASE2_SELECTION_IDENTITY
+    assert STUB_ENGINE_VERSION.endswith(".d.c9d4025c")  # R30, Batch 26 (.d. unmoved by Phase 2)
 
 
 def test_parse_model_version_is_total_across_all_eras():

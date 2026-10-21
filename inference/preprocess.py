@@ -37,9 +37,9 @@ import tempfile
 import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, Protocol, runtime_checkable
 
 import cv2
 import numpy as np
@@ -528,6 +528,26 @@ class FaceSelectionPolicy:
     becomes the chosen fill mode (``pad-<fill>``) and the ``.f.`` segment moves
     once more — the one accepted double-spend, scoped to this field."""
 
+    confidence_threshold: float | None
+    """SCRFD's detection-score floor — the analogue of Haar's ``min_neighbors``
+    for a single-pass anchor detector. ``None`` under Haar, which has no
+    equivalent knob (``detectMultiScale`` performs its own internal merging).
+
+    **SCRFD Integration Program, Phase 2** (``docs/
+    SCRFD_PHASE2_SPEC_RESOLUTION.md``, Decision 6). Required, no default —
+    R17's own rule applies to a second detector exactly as it did to the
+    first: a policy naming an SCRFD detector must state a real value, and
+    :class:`SCRFDDetector` raises rather than silently picking a number
+    nobody wrote down. Adding this field moves ``.f.`` for every policy,
+    including the shipped Haar one — a structural, not behavioural, move
+    (Decision 7: any new key in :attr:`identity`'s fingerprinted dict
+    changes the hash regardless of the value chosen), and the one already
+    ratified for this batch."""
+
+    nms_iou_threshold: float | None
+    """SCRFD's non-maximum-suppression IoU floor. ``None`` under Haar, same
+    reasoning as :attr:`confidence_threshold`."""
+
     @property
     def identity(self) -> str:
         """Fingerprint of this policy. The ``.f.`` segment of the model identity.
@@ -551,6 +571,8 @@ class FaceSelectionPolicy:
                 "crop_shape": self.crop_shape,
                 "interpolation_rule": self.interpolation_rule,
                 "crop_clip_rule": self.crop_clip_rule,
+                "confidence_threshold": self.confidence_threshold,
+                "nms_iou_threshold": self.nms_iou_threshold,
             }
         )
 
@@ -567,6 +589,8 @@ class FaceSelectionPolicy:
             "crop_shape": self.crop_shape,
             "interpolation_rule": self.interpolation_rule,
             "crop_clip_rule": self.crop_clip_rule,
+            "confidence_threshold": self.confidence_threshold,
+            "nms_iou_threshold": self.nms_iou_threshold,
             "identity": self.identity,
         }
 
@@ -584,6 +608,8 @@ class FaceSelectionPolicy:
             "crop_shape",
             "interpolation_rule",
             "crop_clip_rule",
+            "confidence_threshold",
+            "nms_iou_threshold",
         ):
             mine, theirs = getattr(self, field), getattr(other, field)
             if mine != theirs:
@@ -607,6 +633,11 @@ def default_face_selection() -> FaceSelectionPolicy:
     **Batch 22 (R25)** added ``interpolation_rule`` and ``crop_clip_rule``. Both
     name the *current* shipped behaviour verbatim — no pixels moved — and both
     are label closures held to ``resize`` / ``crop_face`` by re-derivation tests.
+
+    **SCRFD Integration Program, Phase 2** added ``confidence_threshold`` and
+    ``nms_iou_threshold``, both ``None`` here — Haar has no equivalent knobs.
+    This moves ``.f.`` (a structural move: two new dict keys, not a pixel
+    change) per ``docs/SCRFD_PHASE2_SPEC_RESOLUTION.md`` Decision 7.
     """
     return FaceSelectionPolicy(
         detector="opencv-haar-frontalface-default",
@@ -619,6 +650,8 @@ def default_face_selection() -> FaceSelectionPolicy:
         crop_shape="square-longest-edge",
         interpolation_rule="area-if-either-axis-exceeds-target-else-linear",
         crop_clip_rule="intersect-image",
+        confidence_threshold=None,
+        nms_iou_threshold=None,
     )
 
 
@@ -876,6 +909,325 @@ def face_order_key(box: FaceBox) -> tuple[int, int, int, int, int, int]:
     return (-box.size_px, -box.area, box.y, box.x, box.width, box.height)
 
 
+@runtime_checkable
+class FaceDetector(Protocol):
+    """Turns an image into raw face boxes, in whatever order the detector emits.
+
+    The only thing a detector does. Ordering into the platform's total order
+    (:func:`face_order_key`) and everything else — the gate, the crop, the
+    model — lives outside, so swapping Haar for SCRFD (the SCRFD Integration
+    Program, ``docs/SCRFD_PROGRAM_DESIGN.md``) changes this object and
+    nothing else. Structural parallel of
+    :class:`~inference.models.ModelBackend`, which already has this shape for
+    the scoring layer.
+    """
+
+    def detect(
+        self, image: np.ndarray, *, policy: "FaceSelectionPolicy"
+    ) -> list[FaceBox]:
+        """``(H, W, 3)`` RGB in, boxes out. Order is not guaranteed — a
+        caller that needs a total order applies :func:`face_order_key`."""
+        ...
+
+
+class HaarDetector:
+    """The shipped detector. Wraps :func:`_face_cascade` verbatim.
+
+    **An extraction, not a reimplementation** — this class introduces no
+    behaviour that :func:`detect_faces` did not already have before this
+    abstraction existed. It reads the same module-level ``_cascade_local``
+    thread-local through the same :func:`_face_cascade` call
+    (:data:`_cascade_local`'s R15 fix is unaffected: nothing here loads or
+    caches a cascade of its own), so per-thread caching and the thread-safety
+    guarantee are exactly what they were.
+
+    Every detector parameter still comes from ``policy``, and nothing else —
+    ``scale_factor``, ``min_neighbors`` and ``detect_min_px`` are Haar's own
+    ``detectMultiScale`` knobs (R17) and only mean something for this
+    detector; a future ``SCRFDDetector`` reads different fields of the same
+    policy object.
+    """
+
+    def detect(
+        self, image: np.ndarray, *, policy: FaceSelectionPolicy
+    ) -> list[FaceBox]:
+        grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        found = _face_cascade().detectMultiScale(
+            grey,
+            scaleFactor=policy.scale_factor,
+            minNeighbors=policy.min_neighbors,
+            minSize=(policy.detect_min_px, policy.detect_min_px),
+        )
+        return [FaceBox(int(x), int(y), int(w), int(h)) for x, y, w, h in found]
+
+
+_haar_detector = HaarDetector()
+"""One shared, stateless instance. Every call reads the module-level
+``_cascade_local``/``_face_cascade`` for its actual caching, so sharing this
+object costs nothing and a fresh one per call would lose nothing either —
+kept as one instance only to avoid needless allocation."""
+
+
+class SCRFDDetector:
+    """SCRFD, an ONNX-backed anchor detector. **Not the shipped default** —
+    wired for the SCRFD Integration Program's Phase 2 (``docs/
+    SCRFD_PHASE2_SPEC_RESOLUTION.md``), not yet selected by
+    :func:`default_face_selection`.
+
+    Anchor decoding and NMS below are a verbatim port of the SCRFD authors'
+    own onnxruntime inference reference (``detection/scrfd/tools/scrfd.py``,
+    ``deepinsight/insightface``) — primary-source-fetched and read this
+    program (``docs/SCRFD_ASSET_AUDIT.md`` §1.5), not reimplemented from a
+    paper reading or guessed at. The one deliberate adaptation: that
+    reference's own preprocessing swaps BGR to RGB (``cv2.dnn.blobFromImage
+    (..., swapRB=True)``) because it is fed BGR frames; every image reaching
+    this module is already RGB (this module's own docstring, "cv2 speaks
+    BGR; everything downstream speaks RGB"), so :meth:`_prepare` does not
+    swap channels a second time.
+
+    Landmarks (the ``kps_*`` outputs a ``_KPS`` variant's graph emits) are
+    never requested from the session and never decoded — :class:`FaceBox` is
+    pure geometry (:class:`FaceDetector`'s own contract), and threading
+    landmarks into :class:`~contracts.common.FaceTrack` is Phase 4 work,
+    deferred per the spec resolution's explicit scope boundary. Reading only
+    the first ``2 * len(_FEAT_STRIDES)`` output names is what makes this
+    class work unmodified against either a 6-output (box-only) or a
+    9-output (``_KPS``) SCRFD export.
+
+    **Execution provider is hardcoded to ``CPUExecutionProvider`` and never
+    selected from the environment** — ``onnxruntime.get_available_providers``
+    is not called anywhere in this class, by design
+    (``docs/SCRFD_PHASE2_SPEC_RESOLUTION.md`` Decision 5). This project
+    declares only the plain ``onnxruntime`` package, never
+    ``onnxruntime-gpu`` (``pyproject.toml``) — relying on ``onnxruntime``'s
+    own default provider-selection order would let identical code silently
+    run a different execution path on a machine where a GPU/CoreML/Azure-
+    capable build happens to be installed (measured live during that
+    decision's own audit: this project's own dev box reports
+    ``['AzureExecutionProvider', 'CPUExecutionProvider']``, i.e. *not* CPU
+    first, if asked). That is the same *shape* of hazard :data:`_cascade_local`
+    already exists to prevent for Haar (R15), one layer up the stack. This
+    is not a :class:`FaceSelectionPolicy` field — it is never varied, so it
+    is implementation, not configuration (the same category
+    :meth:`HaarDetector.detect`'s own use of ``cv2.COLOR_RGB2GRAY`` sits in).
+
+    One :class:`onnxruntime.InferenceSession` per thread, exactly like
+    :func:`_face_cascade` — an ONNX Runtime session is comparable native,
+    mutable state reached through ``asyncio.to_thread`` by the same call
+    paths, and this project has already measured what a shared one costs
+    (R15's own figures).
+    """
+
+    _FEAT_STRIDES = (8, 16, 32)
+    _NUM_ANCHORS = 2
+    _INPUT_MEAN = 127.5
+    _INPUT_STD = 128.0
+
+    def __init__(self, model_path: str) -> None:
+        self._model_path = str(model_path)
+        self._local = threading.local()
+
+    def _session(self):
+        session = getattr(self._local, "session", None)
+        if session is None:
+            import onnxruntime  # lazy — mirrors inference/models.py's _build_onnx_backend
+
+            session = onnxruntime.InferenceSession(
+                self._model_path, providers=["CPUExecutionProvider"]
+            )
+            self._local.session = session
+        return session
+
+    def detect(
+        self, image: np.ndarray, *, policy: FaceSelectionPolicy
+    ) -> list[FaceBox]:
+        if policy.confidence_threshold is None or policy.nms_iou_threshold is None:
+            raise ValueError(
+                "SCRFDDetector requires policy.confidence_threshold and "
+                "policy.nms_iou_threshold; both are None only on a "
+                "Haar-shaped policy (got confidence_threshold="
+                f"{policy.confidence_threshold!r}, nms_iou_threshold="
+                f"{policy.nms_iou_threshold!r})."
+            )
+        session = self._session()
+        input_meta = session.get_inputs()[0]
+        shape = input_meta.shape
+        target_h = shape[2] if isinstance(shape[2], int) else image.shape[0]
+        target_w = shape[3] if isinstance(shape[3], int) else image.shape[1]
+
+        blob, det_scale = self._prepare(image, target_h, target_w)
+
+        fmc = len(self._FEAT_STRIDES)
+        output_names = [o.name for o in session.get_outputs()][: 2 * fmc]
+        net_outs = session.run(output_names, {input_meta.name: blob})
+
+        scores_parts: list[np.ndarray] = []
+        boxes_parts: list[np.ndarray] = []
+        for idx, stride in enumerate(self._FEAT_STRIDES):
+            scores = np.asarray(net_outs[idx], dtype=np.float32).reshape(-1)
+            bbox_preds = (
+                np.asarray(net_outs[idx + fmc], dtype=np.float32).reshape(-1, 4) * stride
+            )
+            feat_h, feat_w = target_h // stride, target_w // stride
+            centers = self._anchor_centers(feat_h, feat_w, stride)
+            keep = np.where(scores >= policy.confidence_threshold)[0]
+            if keep.size == 0:
+                continue
+            scores_parts.append(scores[keep])
+            boxes_parts.append(self._distance2bbox(centers[keep], bbox_preds[keep]))
+
+        if not scores_parts:
+            return []
+
+        scores = np.concatenate(scores_parts)
+        boxes = np.concatenate(boxes_parts, axis=0) / det_scale
+        order = scores.argsort()[::-1]
+        dets = np.hstack([boxes, scores[:, np.newaxis]]).astype(np.float32)[order]
+        keep_idx = self._nms(dets, policy.nms_iou_threshold)
+
+        result = []
+        for x1, y1, x2, y2, _score in dets[keep_idx]:
+            result.append(
+                FaceBox(int(round(x1)), int(round(y1)), int(round(x2 - x1)), int(round(y2 - y1)))
+            )
+        return result
+
+    @staticmethod
+    def _prepare(image: np.ndarray, target_h: int, target_w: int) -> tuple[np.ndarray, float]:
+        """Letterbox into ``(target_h, target_w)`` preserving aspect ratio,
+        then SCRFD's own normalisation (mean 127.5, scale 1/128 — verbatim
+        from ``tools/scrfd.py``'s ``blobFromImage`` call). Returns the NCHW
+        float32 blob and the scale factor applied, so boxes decoded in blob
+        space can be rescaled back to ``image``'s own coordinates."""
+        img_h, img_w = image.shape[0], image.shape[1]
+        im_ratio = img_h / img_w
+        model_ratio = target_h / target_w
+        if im_ratio > model_ratio:
+            new_h = target_h
+            new_w = max(1, int(new_h / im_ratio))
+        else:
+            new_w = target_w
+            new_h = max(1, int(new_w * im_ratio))
+        det_scale = new_h / img_h
+        resized = cv2.resize(image, (new_w, new_h))
+        canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+        canvas[:new_h, :new_w, :] = resized
+        blob = (canvas.astype(np.float32) - SCRFDDetector._INPUT_MEAN) / SCRFDDetector._INPUT_STD
+        blob = np.transpose(blob, (2, 0, 1))[np.newaxis, ...]
+        return blob, det_scale
+
+    @staticmethod
+    def _anchor_centers(feat_h: int, feat_w: int, stride: int) -> np.ndarray:
+        """Grid of anchor centers in input-pixel coordinates, one per
+        (row, col, anchor) triple, replicated :attr:`_NUM_ANCHORS` times per
+        location — the exact interleaving the reference exporter's own
+        tensors are flattened in (verified against ``tools/scrfd.py``)."""
+        centers = np.stack(np.mgrid[:feat_h, :feat_w][::-1], axis=-1).astype(np.float32)
+        centers = (centers * stride).reshape(-1, 2)
+        return np.repeat(centers, SCRFDDetector._NUM_ANCHORS, axis=0)
+
+    @staticmethod
+    def _distance2bbox(points: np.ndarray, distance: np.ndarray) -> np.ndarray:
+        """(left, top, right, bottom) offsets from a center point to a box.
+        Verbatim port of ``distance2bbox`` in ``detection/scrfd/tools/
+        scrfd.py`` — deliberately not clamped to the image here (that
+        reference's own ``detect()`` does not clamp either); an
+        edge-crossing box is handled downstream by
+        ``inference.postprocess.face_track``'s existing coordinate clamp,
+        exactly as ``docs/SCRFD_PHASE2_DESIGN.md`` §2.2 anticipated."""
+        x1 = points[:, 0] - distance[:, 0]
+        y1 = points[:, 1] - distance[:, 1]
+        x2 = points[:, 0] + distance[:, 2]
+        y2 = points[:, 1] + distance[:, 3]
+        return np.stack([x1, y1, x2, y2], axis=-1)
+
+    @staticmethod
+    def _nms(dets: np.ndarray, thresh: float) -> list[int]:
+        """Greedy IoU suppression. Verbatim port of the ``nms`` method in
+        ``detection/scrfd/tools/scrfd.py`` (the pixel-inclusive ``+1`` area
+        convention is the authors' own, kept for fidelity rather than
+        "corrected")."""
+        x1, y1, x2, y2, scores = dets[:, 0], dets[:, 1], dets[:, 2], dets[:, 3], dets[:, 4]
+        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+        order = scores.argsort()[::-1]
+        keep: list[int] = []
+        while order.size > 0:
+            i = order[0]
+            keep.append(int(i))
+            xx1 = np.maximum(x1[i], x1[order[1:]])
+            yy1 = np.maximum(y1[i], y1[order[1:]])
+            xx2 = np.minimum(x2[i], x2[order[1:]])
+            yy2 = np.minimum(y2[i], y2[order[1:]])
+            w = np.maximum(0.0, xx2 - xx1 + 1)
+            h = np.maximum(0.0, yy2 - yy1 + 1)
+            inter = w * h
+            overlap = inter / (areas[i] + areas[order[1:]] - inter)
+            order = order[np.where(overlap <= thresh)[0] + 1]
+        return keep
+
+
+@cache
+def scrfd_asset_digest(model_path: str) -> str:
+    """Content hash of an SCRFD ONNX asset. Same shape as :func:`cascade_digest`
+    — a ``sha256`` of the file's bytes, truncated to the platform's standard
+    fingerprint length — but keyed by path (an unbounded ``@cache``, not
+    ``cascade_digest``'s ``@lru_cache(maxsize=1)``) because, unlike the Haar
+    cascade, the SCRFD asset's location is configurable
+    (``$DFP_SCRFD_MODEL_PATH``, ``docs/SCRFD_PHASE2_SPEC_RESOLUTION.md``
+    Decision 4) rather than one fixed constant.
+
+    Falls back to a marker string rather than raising, mirroring
+    :func:`cascade_digest`'s own reasoning: a missing diagnostic must not be
+    able to stop an analysis.
+    """
+    try:
+        with open(model_path, "rb") as handle:
+            return hashlib.sha256(handle.read()).hexdigest()[:16]
+    except OSError:
+        return "unreadable"
+
+
+@cache
+def _scrfd_detector_for(detector_asset: str) -> SCRFDDetector:
+    """Resolve (and cache) the :class:`SCRFDDetector` a policy's
+    ``detector_asset`` digest names. **Not reachable from any shipped
+    pipeline in Phase 2** — :func:`default_face_selection` never returns a
+    policy whose ``detector`` matches :func:`detect_faces`'s SCRFD branch,
+    so this factory only runs from a test or study script that explicitly
+    constructs an SCRFD-shaped policy.
+
+    ``$DFP_SCRFD_MODEL_PATH`` mirrors ``$DFP_MODEL_VERSION``'s existing
+    read-directly-via-``os.environ`` pattern (``workers/runner.py``) rather
+    than a new :class:`FaceSelectionPolicy` field or a ``backend.config.
+    Settings`` import — the latter would create an ``inference`` ->
+    ``backend`` import edge this codebase's dependency graph forbids
+    (``docs/SCRFD_PHASE2_SPEC_RESOLUTION.md`` Decision 4).
+
+    Verifies the file at that path actually has the digest the policy
+    claims, once per distinct digest (this function is itself cached) — a
+    stale env var pointing at a different file than the policy's own
+    identity names is a loud error here, not a silently wrong detector
+    (Decision 3's trust-on-first-use chain depends on this check running).
+    """
+    model_path = os.environ.get("DFP_SCRFD_MODEL_PATH")
+    if not model_path:
+        raise UnreadableMedia(
+            "An SCRFD-selecting policy was used but $DFP_SCRFD_MODEL_PATH is not set.",
+            detail="See docs/SCRFD_ASSET.md for the fetch and configuration steps.",
+        )
+    actual = scrfd_asset_digest(model_path)
+    if actual != detector_asset:
+        raise UnreadableMedia(
+            f"SCRFD asset at {model_path!r} has digest {actual!r}, but the "
+            f"policy names {detector_asset!r}.",
+            detail=(
+                "Stale $DFP_SCRFD_MODEL_PATH, or a policy built against a "
+                "different asset than the one currently on disk."
+            ),
+        )
+    return SCRFDDetector(model_path)
+
+
 def detect_faces(
     image: np.ndarray, *, policy: FaceSelectionPolicy | None = None
 ) -> list[FaceBox]:
@@ -893,16 +1245,35 @@ def detect_faces(
     wanting different parameters passes a different policy, and that policy has a
     different :attr:`~FaceSelectionPolicy.identity`, so the change cannot reach
     the pixels without reaching the version string.
+
+    **Dispatches on ``policy.detector`` as of SCRFD Integration Program
+    Phase 2** (``docs/SCRFD_PHASE2_SPEC_RESOLUTION.md``). Phase 1 hard-wired
+    this function to :class:`HaarDetector` because only one implementation
+    existed (see ``docs/SCRFD_PHASE1_ABSTRACTION_VERIFICATION.md``); a
+    second one now does, which is exactly the condition this function's own
+    Phase-1 docstring named as the trigger for adding dispatch.
+    :func:`default_face_selection` still returns
+    ``detector="opencv-haar-frontalface-default"``, so the branch taken in
+    every shipped pipeline is byte-for-byte what Phase 1 shipped — the
+    SCRFD branch below is reachable only from a policy a test or study
+    script constructs explicitly; no production caller does. Unlike the
+    model-scoring registry (``ModelRegistry._build_backend``, ``inference/
+    models.py``), an unknown ``policy.detector`` raises rather than falling
+    back, for the same reason that registry raises rather than falling back
+    to the stub: a deployment silently scoring with the wrong detector
+    while reporting a different one is worse than one that refuses. This
+    function stays the stable, directly-reassignable entry point every
+    caller and every test double already uses.
     """
     policy = policy or default_face_selection()
-    grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    found = _face_cascade().detectMultiScale(
-        grey,
-        scaleFactor=policy.scale_factor,
-        minNeighbors=policy.min_neighbors,
-        minSize=(policy.detect_min_px, policy.detect_min_px),
-    )
-    boxes = [FaceBox(int(x), int(y), int(w), int(h)) for x, y, w, h in found]
+    detector: FaceDetector
+    if policy.detector == "opencv-haar-frontalface-default":
+        detector = _haar_detector
+    elif policy.detector.startswith("scrfd-"):
+        detector = _scrfd_detector_for(policy.detector_asset)
+    else:
+        raise UnreadableMedia(f"Unknown face detector {policy.detector!r}.")
+    boxes = detector.detect(image, policy=policy)
     return sorted(boxes, key=face_order_key)
 
 

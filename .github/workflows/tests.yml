@@ -25,8 +25,19 @@ jobs:
       # --locked fails the job on any drift between pyproject.toml and
       # uv.lock instead of silently rewriting the lock (PA6,
       # docs/B24_N5_DESIGN.md §6.2).
+      #
+      # --extra onnx added in the SCRFD Integration Program, Phase 2:
+      # tests/test_scrfd_detector.py is the first suite in this repository's
+      # history to actually construct an onnxruntime.InferenceSession rather
+      # than only statically scanning for the import (import_audit.py's
+      # MATRIX, which test_the_optional_imports_are_genuinely_lazy already
+      # exercised without onnxruntime ever needing to be installed). Without
+      # this flag the `onnx` extra's `onnxruntime` package is absent and
+      # every SCRFD-detector test fails with ModuleNotFoundError — found by
+      # actually running `uv sync --locked --extra dev` +
+      # `uv run python tests/run_all.py` in sequence, not assumed.
       - name: Install dependencies
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --extra dev --extra onnx
 
       - name: Run test suite
         run: uv run python tests/run_all.py

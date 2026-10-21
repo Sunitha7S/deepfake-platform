@@ -91,7 +91,10 @@ from inference.video_pipeline import VideoPipeline  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 # Unaffected by Batch 26 — only `.d.` moved there. See docs/R30_BUNDLE_DESIGN.md
-MODEL_ID = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
+# §5. SCRFD Integration Program, Phase 2 later moved `.f.` (`e629642c` ->
+# `f8244ad0`, docs/SCRFD_PHASE2_SPEC_RESOLUTION.md Decision 7) — this is that
+# collateral update.
+MODEL_ID = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
 TH = ThresholdInfo.at_margin(value=0.62, margin=DEFAULT_LOG_ODDS_MARGIN, target_fpr=0.02)
 
 

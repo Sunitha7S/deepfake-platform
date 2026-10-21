@@ -29,7 +29,9 @@ import test_evaluation_metrics  # noqa: E402
 import test_evaluation_operating  # noqa: E402
 import test_evaluation_protocol  # noqa: E402
 import test_evaluation_svg  # noqa: E402
+import test_face_detector_abstraction  # noqa: E402
 import test_face_selection_identity  # noqa: E402
+import test_scrfd_detector  # noqa: E402
 import test_video_face_semantics  # noqa: E402
 import test_face_size_policy  # noqa: E402
 import test_crop_geometry  # noqa: E402
@@ -126,6 +128,8 @@ SUITES = [
     ("S8-B25 worker composition root (OR1-b)", test_worker_main),
     ("S8-B26 image decode identity (R30 + D8/D9)", test_image_decode_identity),
     ("S8-B27 face geometry publication (R16 + R26)", test_face_geometry_publication),
+    ("S8-B28 face detector abstraction (SCRFD Phase 1)", test_face_detector_abstraction),
+    ("S8-B28 SCRFD detector, wired not defaulted (SCRFD Phase 2)", test_scrfd_detector),
 ]
 
 

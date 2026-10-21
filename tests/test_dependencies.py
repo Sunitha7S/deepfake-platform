@@ -383,11 +383,14 @@ def test_decode_identity_is_unchanged():
 
 
 def test_stub_engine_version_is_unchanged():
-    """NM2."""
+    """NM2. See test_decode_identity_is_unchanged above — "unchanged" describes
+    N5's own batch; R30 (Batch 26) moves the .d. tail deliberately, and the
+    SCRFD Integration Program Phase 2 moves the .f. tail deliberately
+    (docs/SCRFD_PHASE2_SPEC_RESOLUTION.md Decision 7)."""
     from backend.config import STUB_ENGINE_VERSION
 
     assert STUB_ENGINE_VERSION == (
-        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
+        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0.d.c9d4025c"
     )
 
 
@@ -397,7 +400,7 @@ def test_model_identity_is_unchanged():
     from contracts.version import model_identity_of
 
     assert model_identity_of(STUB_ENGINE_VERSION) == (
-        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c"
+        "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0"
     )
 
 
@@ -423,9 +426,13 @@ def test_the_tool_uv_section_is_invisible_to_the_dependency_audit():
     exact pre-N5 baseline captured before [tool.uv]/uv.lock existed, not
     merely asserted post hoc. `dev` gained `httpx2` mid-batch (the
     clean-environment gap this batch also fixed — see
-    REPRODUCIBILITY_AUDIT.md); that addition is a real, intended dependency
-    declaration, not an artifact of [tool.uv], so it is asserted here too
-    rather than making this test coincidentally pass either way.
+    REPRODUCIBILITY_AUDIT.md) and later `onnx` (SCRFD Integration Program,
+    Phase 2 — `tests/test_scrfd_detector.py`/`scrfd_detector_study.py` build
+    synthetic ONNX graphs at test time rather than depend on the real,
+    licensed SCRFD asset, `docs/SCRFD_ASSET_AUDIT.md` §2.2); both additions
+    are real, intended dependency declarations, not an artifact of
+    [tool.uv], so both are asserted here too rather than making this test
+    coincidentally pass either way.
     """
     assert DECLARED.runtime == {
         "pydantic",
@@ -438,7 +445,7 @@ def test_the_tool_uv_section_is_invisible_to_the_dependency_audit():
     assert DECLARED.extras == {
         "torch": {"torch"},
         "onnx": {"onnxruntime"},
-        "dev": {"psutil", "pytest", "pillow", "ruff", "httpx2"},
+        "dev": {"psutil", "pytest", "pillow", "ruff", "httpx2", "onnx"},
     }
 
 

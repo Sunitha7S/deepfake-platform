@@ -299,6 +299,10 @@ def test_every_policy_field_moves_the_identity():
         # S8 Batch 22 (R25): two label closures over resize / crop_face geometry.
         "interpolation_rule": "linear-always",
         "crop_clip_rule": "pad-replicate",
+        # SCRFD Integration Program, Phase 2 (docs/SCRFD_PHASE2_SPEC_RESOLUTION.md
+        # Decision 6): None under Haar, so any real value must move the identity.
+        "confidence_threshold": 0.5,
+        "nms_iou_threshold": 0.4,
     }
     names = {f.name for f in fields(pre.FaceSelectionPolicy)}
     assert names == set(alternatives), (

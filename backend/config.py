@@ -38,8 +38,29 @@ if TYPE_CHECKING:  # pragma: no cover - import only for type names
 
 Environment = Literal["dev", "staging", "prod"]
 
-STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.e629642c.d.c9d4025c"
+STUB_ENGINE_VERSION = "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0.d.c9d4025c"
 """Runtime version of the shipped stub engines, copied here as a literal.
+
+**The ``.f.`` segment moved in the SCRFD Integration Program, Phase 2**
+(``docs/SCRFD_PHASE2_SPEC_RESOLUTION.md``, Decision 7) — the composite
+selection identity was ``e629642c``, it is now ``f8244ad0``. Not a pixel
+change: ``FaceSelectionPolicy`` gained two fields, ``confidence_threshold``
+and ``nms_iou_threshold`` (SCRFD's own detection-score and NMS-IoU floors),
+both ``None`` under the still-shipped Haar policy. Any new key in
+``FaceSelectionPolicy.identity``'s fingerprinted dict moves the hash for
+every policy computed from it, including the unchanged Haar one — proven
+from ``contracts.version.fingerprint``'s own mechanics, not assumed
+(Decision 7 checked and rejected five alternative designs that would have
+preserved the old value, each for a distinct reason — see that document).
+``default_face_selection().identity`` (the *face-only* fingerprint, as
+opposed to this composite) moved too, from ``251d22e9`` to ``b0591be3``.
+``default_face_selection().detector`` is **unchanged**
+(``"opencv-haar-frontalface-default"``) — this phase wires a second
+detector (``SCRFDDetector``) but does not select it; Haar remains the
+shipped default. One cache generation spanning both media namespaces (N8
+precedent). No contract / RUN_SCHEMA / witness / lock-version move; ``.d.``
+unchanged. See ``docs/SCRFD_PHASE2_DESIGN.md``, ``docs/
+SCRFD_PHASE2_SPEC_RESOLUTION.md``.
 
 **The ``.d.`` segment moved in S8 Batch 26 (R30 + D8/D9)** — ``a97ccb68`` to
 ``c9d4025c`` — because the image-decode libraries (libjpeg-turbo, libpng,

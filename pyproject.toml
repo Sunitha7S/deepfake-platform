@@ -61,7 +61,15 @@ onnx = ["onnxruntime>=1.18"]
 # describes once, recurring here for a test-only, AST-invisible import (`import_
 # audit.py` scans the seven shipping packages, not `tests/`, so this class of gap
 # is structurally outside what the R7 suite can catch). See REPRODUCIBILITY_AUDIT.md.
-dev = ["pytest>=8", "ruff>=0.6", "psutil>=5.9", "pillow>=10", "httpx2"]
+#
+# onnx (the graph/protobuf package, not the `onnx` extra above — which installs
+# `onnxruntime` and is a different thing with an unfortunately identical name)
+# is test-only: `tests/test_scrfd_detector.py`/`scrfd_detector_study.py` (SCRFD
+# Integration Program, Phase 2) build small synthetic ONNX graphs at test time
+# rather than depend on the real, licensed SCRFD asset
+# (`docs/SCRFD_ASSET_AUDIT.md` §2.2). Found by this same `test_dependencies.py`
+# suite, the same class of gap httpx2 above already describes.
+dev = ["pytest>=8", "ruff>=0.6", "psutil>=5.9", "pillow>=10", "httpx2", "onnx>=1.13"]
 
 [tool.setuptools]
 # All seven shipping packages. This said `["contracts"]` through S8 Batch 4,
