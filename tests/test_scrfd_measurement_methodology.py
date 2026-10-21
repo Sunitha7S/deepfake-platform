@@ -280,6 +280,12 @@ def test_max_short_edge_bootstrap_ci_is_also_cluster_based():
 
 def _fake_result(**overrides) -> dict:
     base = dict(
+        asset_digest="0123456789abcdef",
+        corpus_digest="f" * 64,
+        confidence_threshold=0.5,
+        nms_iou_threshold=0.4,
+        seed=0,
+        environment={},
         n_images=250,
         k_realisations=11,
         total_trials=2750,
@@ -364,6 +370,86 @@ def test_no_identity_or_schema_axis_moved():
     assert CALIBRATION_WITNESS_VERSION == "1.3.0"
     assert LOCK_VERSION == "1.1.0"
     assert STUB_ENGINE_VERSION == "stub-0-wacdd9240+c.739c3fec.g.ae232cba.f.f8244ad0.d.c9d4025c"
+
+
+# --------------------------------------------------------------------------
+# I — end to end: measure() runs, records provenance, and a box that never
+#     moves gives amplification exactly 1 (plumbing, not R13 evidence)
+# --------------------------------------------------------------------------
+
+
+def _synthetic_inputs(n_images: int) -> tuple[str, str]:
+    """A constant-output SCRFD-shaped model (its box never moves, whatever the
+    noise) and a folder of generated photographs. Proves the measurement path
+    executes; says nothing about any real detector."""
+    import tempfile
+
+    import cv2
+
+    from test_scrfd_detector import _write_fixture
+
+    model = Path(tempfile.mkdtemp(prefix="dfp-r13-model-")) / "constant.onnx"
+    _write_fixture(str(model), [(8, 18, 0.95, [1.0, 1.0, 1.0, 1.0])])
+    photos = Path(tempfile.mkdtemp(prefix="dfp-r13-photos-"))
+    for i in range(n_images):
+        img = np.random.default_rng(i).integers(0, 256, (96, 96, 3), dtype=np.uint8)
+        assert cv2.imwrite(str(photos / f"p{i:03d}.png"), img)
+    return str(model), str(photos)
+
+
+def test_measure_runs_end_to_end_and_records_provenance():
+    from scrfd_corpus import manifest_digest
+
+    from inference import preprocess as pre
+
+    model, photos = _synthetic_inputs(4)
+    result = study.measure(model, photos, seed=3, k_realisations=5)
+    assert result["asset_digest"] == pre.scrfd_asset_digest(model)
+    assert result["corpus_digest"] == manifest_digest(Path(photos))
+    assert (result["confidence_threshold"], result["nms_iou_threshold"]) == (0.5, 0.4)
+    assert result["seed"] == 3
+    assert {"python", "numpy", "opencv", "onnxruntime"} <= set(result["environment"])
+    assert result["n_images"] == 4 and result["total_trials"] == 20
+    assert result["faces_lost"] == 0 and result["clean_detection_failures"] == 0
+
+
+def test_a_box_that_never_moves_amplifies_by_exactly_one():
+    """``A = spread(free) / spread(fixed)``: when the re-detected box equals the
+    pre-noise box on every realisation, the two crops are the same pixels and
+    the ratio is 1 — the floor a perfectly stable detector reaches."""
+    model, photos = _synthetic_inputs(4)
+    result = study.measure(model, photos, seed=0, k_realisations=5)
+    assert result["max_short_edge_move_pct"] == 0.0
+    assert result["amplification"] == 1.0
+    assert result["amplification_ci"] == (1.0, 1.0)
+
+
+def test_the_evidence_record_is_written_when_requested():
+    import io
+    import json
+    import os
+    import tempfile
+    from contextlib import redirect_stdout
+
+    model, photos = _synthetic_inputs(3)
+    out = Path(tempfile.mkdtemp(prefix="dfp-r13-evidence-")) / "run.json"
+    saved = {k: os.environ.get(k) for k in ("DFP_SCRFD_MODEL_PATH", "DFP_SCRFD_STUDY_PHOTOS",
+                                             "DFP_SCRFD_STUDY_JSON", "DFP_SCRFD_STUDY_SEED")}
+    os.environ.update(DFP_SCRFD_MODEL_PATH=model, DFP_SCRFD_STUDY_PHOTOS=photos,
+                      DFP_SCRFD_STUDY_JSON=str(out), DFP_SCRFD_STUDY_SEED="1")
+    try:
+        with redirect_stdout(io.StringIO()):
+            assert study.main() == 0
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    record = json.loads(out.read_text(encoding="utf-8"))
+    assert record["seed"] == 1
+    assert record["clears_criterion"] is False, "three images is below the 200-image floor"
+    assert record["asset_digest"] and record["corpus_digest"]
 
 
 def _run() -> int:

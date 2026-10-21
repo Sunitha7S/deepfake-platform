@@ -74,8 +74,10 @@ from inference.image_pipeline import ImagePipeline  # noqa: E402
 from inference.models import ModelBackend, ModelRegistry, ModelSpec  # noqa: E402
 from inference.postprocess import BranchOutcome, fuse, manipulation_evidence  # noqa: E402
 from inference.video_pipeline import VideoPipeline  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
+_HAAR = haar_selection()  # branch-B semantics on Haar-tuned fixtures, not the detector
 
 
 # --------------------------------------------------------------------------
@@ -176,7 +178,7 @@ def _digest(arr: np.ndarray) -> str:
 def _run_image_capturing(image_bytes: bytes, boxes: list[pre.FaceBox]):
     reg = ModelRegistry()
     reg.register(ModelSpec(name="cap", version="stub-0", backend="stub", input_size=384))
-    eng = ImagePipeline(model_name="cap", registry=reg)
+    eng = ImagePipeline(model_name="cap", registry=reg, face_selection=_HAAR)
     loaded = reg.load_model("cap")
     cap = TensorCaptureBackend(reg.get_spec("cap"))
     loaded.backend = cap
@@ -285,7 +287,9 @@ def test_the_fixture_and_the_pipeline_disagree_about_a_faceless_image():
     clarification — it makes the fixture *say* it depicts a target.
     """
     fixture = fx.image_no_face()
-    pipeline = asyncio.run(ImagePipeline().analyze_image(_spec(_faceless_png()), _faceless_png()))
+    pipeline = asyncio.run(
+        ImagePipeline(face_selection=_HAAR).analyze_image(_spec(_faceless_png()), _faceless_png())
+    )
 
     # The fixture: branch B carries a decided verdict with no face.
     assert fixture.branch(BranchId.A).status is BranchStatus.ABSTAINED
@@ -309,7 +313,7 @@ def test_the_pipeline_never_scores_branch_b_without_a_face():
     """The current, load-bearing behaviour. A future whole-image B changes this."""
     for maker in (_faceless_png, lambda: _faceless_png(40, 40)):
         data = maker()
-        bundle = asyncio.run(ImagePipeline().analyze_image(_spec(data), data))
+        bundle = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(_spec(data), data))
         assert bundle.verdict is Verdict.INSUFFICIENT_EVIDENCE
         assert all(br.status is not BranchStatus.SCORED for br in bundle.branches), (
             "a branch scored on an input with no usable face — R22 may have moved"

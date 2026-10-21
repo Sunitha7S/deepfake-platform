@@ -84,6 +84,7 @@ from inference.models import LoadedModel, ModelRegistry, ModelSpec  # noqa: E402
 from inference.postprocess import QualityFacts  # noqa: E402
 from inference.preprocess import FaceBox, face_order_key  # noqa: E402
 from inference.video_pipeline import VideoPipeline  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -182,7 +183,7 @@ def _analyse_image(boxes: list[FaceBox]) -> EvidenceBundle:
     """Scripted boxes, the real ``StubBackend``, real ``analyze_image`` between."""
     registry = ModelRegistry()
     registry.register(ModelSpec(name="s", version="stub-0", backend="stub", input_size=384))
-    pipeline = ImagePipeline(model_name="s", registry=registry)
+    pipeline = ImagePipeline(model_name="s", registry=registry, face_selection=haar_selection())
     loaded = registry.load_model("s")
     registry._loaded["s"] = LoadedModel(
         spec=pipeline._spec, backend=loaded.backend, loaded_at=datetime.now(UTC), load_ms=0

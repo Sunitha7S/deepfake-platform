@@ -186,6 +186,43 @@ def _build_input_dependent_model(path: str, *, scale: float, base_dist: float) -
     Path(path).write_bytes(model.SerializeToString())
 
 
+def _build_dynamic_input_model(path: str) -> None:
+    """An SCRFD-shaped graph with **dynamic** spatial input, whose per-stride
+    heads emit ``ceil(H/s) x ceil(W/s)`` cells, two anchors each — the output
+    geometry of SCRFD's real stride-8/16/32 heads (padded strided convs round
+    up). Values are a sigmoid of pooled pixels: arbitrary, but every one of
+    them clears a zero confidence threshold, so a decoder whose anchor grid
+    disagrees with the head size is exercised on every cell."""
+    graph_input = helper.make_tensor_value_info("input.1", TensorProto.FLOAT, [1, 3, "h", "w"])
+    nodes, score_outs, bbox_outs = [], [], []
+    for s in _STRIDES:
+        nodes += [
+            helper.make_node(
+                "AveragePool", ["input.1"], [f"p{s}"], kernel_shape=[s, s], strides=[s, s], ceil_mode=1
+            ),
+            helper.make_node("ReduceMean", [f"p{s}"], [f"m{s}"], axes=[1], keepdims=1),
+            helper.make_node("Sigmoid", [f"m{s}"], [f"g{s}"]),
+            helper.make_node("Concat", [f"g{s}"] * _NUM_ANCHORS, [f"c{s}"], axis=1),
+            helper.make_node("Transpose", [f"c{s}"], [f"t{s}"], perm=[0, 2, 3, 1]),
+            helper.make_node("Flatten", [f"t{s}"], [f"f{s}"], axis=0),
+            helper.make_node("Squeeze", [f"f{s}"], [f"score_{s}"], axes=[0]),
+            helper.make_node("Concat", [f"g{s}"] * (4 * _NUM_ANCHORS), [f"b{s}"], axis=1),
+            helper.make_node("Transpose", [f"b{s}"], [f"bt{s}"], perm=[0, 2, 3, 1]),
+            helper.make_node(
+                "Constant", [], [f"shape{s}"],
+                value=helper.make_tensor(f"shape{s}v", TensorProto.INT64, [2], [-1, 4]),
+            ),
+            helper.make_node("Reshape", [f"bt{s}", f"shape{s}"], [f"bbox_{s}"]),
+        ]
+        score_outs.append(helper.make_tensor_value_info(f"score_{s}", TensorProto.FLOAT, [f"n{s}"]))
+        bbox_outs.append(helper.make_tensor_value_info(f"bbox_{s}", TensorProto.FLOAT, [f"b{s}", 4]))
+    graph = helper.make_graph(nodes, "scrfd_dynamic_fixture", [graph_input], score_outs + bbox_outs)
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 11)])
+    model.ir_version = 8
+    onnx.checker.check_model(model)
+    Path(path).write_bytes(model.SerializeToString())
+
+
 def _tmp_path(name: str) -> str:
     return str(Path(tempfile.mkdtemp(prefix="dfp-scrfd-fixture-")) / name)
 
@@ -466,6 +503,71 @@ def test_model_path_is_not_a_face_selection_policy_field():
         "location out of the identity-bearing dataclass, mirroring "
         "ModelSpec.weights_uri's own exclusion from weights_identity"
     )
+
+
+# --------------------------------------------------------------------------
+# K — a dynamic-input model decodes real photograph sizes
+# --------------------------------------------------------------------------
+
+
+def test_a_dynamic_input_model_decodes_images_of_any_size():
+    """SCRFD heads emit ``ceil(H/s)`` cells; the decoder's anchor grid is
+    ``H // s``. Fed an image at its own size, the two disagree whenever a side
+    is not a multiple of 32 — an ``IndexError`` at best, silently misplaced
+    boxes at worst. Measured before the fix: 64x64 decoded, 70x50 and
+    767x1023 raised. InsightFace's packaged detectors take dynamic input, so
+    this is the path R13's real measurement would run on every photograph."""
+    model_path = _tmp_path("dynamic.onnx")
+    _build_dynamic_input_model(model_path)
+    detector = pre.SCRFDDetector(model_path)
+    policy = _scrfd_policy(model_path, confidence_threshold=0.0)
+    for h, w in ((70, 50), (767, 1023), (480, 640), (64, 64)):
+        image = np.random.default_rng(h * w).integers(0, 256, (h, w, 3), dtype=np.uint8)
+        boxes = detector.detect(image, policy=policy)
+        assert isinstance(boxes, list) and boxes, f"{h}x{w}: {boxes!r}"
+
+
+def test_a_dynamic_input_model_runs_at_the_reference_detection_size():
+    """The fixed size is the upstream reference's own default
+    (``FaceAnalysis.prepare(det_size=(640, 640))``) and a multiple of the
+    largest stride, so every head's cell count matches the anchor grid."""
+    model_path = _tmp_path("dynamic.onnx")
+    _build_dynamic_input_model(model_path)
+    detector = pre.SCRFDDetector(model_path)
+    policy = _scrfd_policy(model_path, confidence_threshold=0.0)
+    seen: list[tuple[int, int]] = []
+    original = pre.SCRFDDetector._prepare
+
+    def recording(image, target_h, target_w):
+        seen.append((target_h, target_w))
+        return original(image, target_h, target_w)
+
+    pre.SCRFDDetector._prepare = staticmethod(recording)
+    try:
+        detector.detect(np.zeros((70, 50, 3), dtype=np.uint8), policy=policy)
+    finally:
+        pre.SCRFDDetector._prepare = staticmethod(original)
+    assert seen == [pre.SCRFDDetector._DYNAMIC_INPUT_SIZE], seen
+    assert all(side % max(_STRIDES) == 0 for side in seen[0])
+
+
+def test_a_fixed_input_model_still_runs_at_its_own_size():
+    model_path = _tmp_path("single_detection.onnx")
+    _write_fixture(model_path, [(8, 18, 0.95, [1.0, 1.0, 1.0, 1.0])])
+    detector = pre.SCRFDDetector(model_path)
+    seen: list[tuple[int, int]] = []
+    original = pre.SCRFDDetector._prepare
+
+    def recording(image, target_h, target_w):
+        seen.append((target_h, target_w))
+        return original(image, target_h, target_w)
+
+    pre.SCRFDDetector._prepare = staticmethod(recording)
+    try:
+        detector.detect(_random_image(), policy=_scrfd_policy(model_path))
+    finally:
+        pre.SCRFDDetector._prepare = staticmethod(original)
+    assert seen == [(_INPUT_HW, _INPUT_HW)], seen
 
 
 def _run() -> int:

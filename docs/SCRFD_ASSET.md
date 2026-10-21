@@ -14,6 +14,45 @@ override all work against *any* correctly-shaped asset placed at the
 configured path — nothing in Phase 2's code depends on this document's
 hash fields being filled in yet.
 
+### Re-verified 2026-10-17 (supersedes §3's "no upstream checksum" statement)
+
+Fetched live from `api.github.com/repos/deepinsight/insightface/releases/tags/model-zoo`
+and the three license files on `raw.githubusercontent.com`:
+
+- **License unchanged:** all three primary sources still read
+  *non-commercial research purposes only* for every pretrained model,
+  automatic or manual download. Library code remains MIT.
+- **GitHub now publishes a SHA-256 for every release asset.** The
+  trust-on-first-use limitation recorded below (§3, and
+  `docs/SCRFD_PHASE2_SPEC_RESOLUTION.md` Decision 3) no longer applies to
+  the archive itself:
+
+  | Asset | Size | Upstream digest |
+  |---|---|---|
+  | `buffalo_l.zip` | 288.62 MB | `sha256:80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f` |
+  | `cheetah_l.zip` | 211.54 MB | `sha256:df81a05801731af706836384124a35ea02430f27edd08023532e1bee21cabc8d` |
+
+  A fetched archive must match its digest before anything is extracted.
+- **A stronger alternative exists.** Upstream documents that `cheetah_l`'s
+  face-detection ONNX is identical to `buffalo_l`'s, and V2 packages such as
+  `cheetah_l` ship a `manifest.json` declaring each model file's SHA-256
+  plus a signed `MODEL.LICENSE`. Fetching `cheetah_l.zip` instead gives an
+  upstream-declared hash for the *extracted detector* too, not only the
+  archive — closing the remaining trust-on-first-use gap. Same license.
+- **Not a face detector:** `scrfd_person_2.5g.onnx` on the same release is
+  a person detector. Do not substitute it.
+
+### License acceptance record
+
+Not yet accepted. To be completed by the person accepting, before any fetch:
+
+```
+Accepted by: <name>      Date: <YYYY-MM-DD>
+Environments: <e.g. personal dev machine only>
+Use: non-commercial research / portfolio — no commercial distribution
+Package fetched: <buffalo_l.zip | cheetah_l.zip>
+```
+
 ---
 
 ## 1. What to fetch

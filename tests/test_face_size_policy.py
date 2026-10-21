@@ -70,8 +70,10 @@ from inference import preprocess as pre  # noqa: E402
 from inference.image_pipeline import ImagePipeline  # noqa: E402
 from inference.models import ModelRegistry, ModelSpec  # noqa: E402
 from inference.preprocess import FaceBox, face_order_key  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
 
 FLOOR = pre.DEFAULT_CAPS.min_face_px
+_HAAR = haar_selection()  # gate/ordering mechanics and Haar's own boxes are under test
 
 
 # --------------------------------------------------------------------------
@@ -207,7 +209,7 @@ def _analyse(
 
     registry = ModelRegistry()
     registry.register(ModelSpec(name="oracle", version="oracle-0", backend="stub", input_size=384))
-    pipeline = ImagePipeline(model_name="oracle", registry=registry)
+    pipeline = ImagePipeline(model_name="oracle", registry=registry, face_selection=_HAAR)
     backend = RegionOracleBackend(pipeline._spec)
     registry._loaded["oracle"] = LoadedModel(
         spec=pipeline._spec, backend=backend, loaded_at=datetime.now(UTC), load_ms=0
@@ -528,7 +530,7 @@ def test_the_shipped_detector_emits_boxes_within_the_safe_margin():
 def test_the_real_detection_path_is_unchanged():
     """End to end on the fixture real Haar can see: same box, same crop bytes."""
     img = _face_image()
-    found = pre.detect_faces(img)
+    found = pre.detect_faces(img, policy=_HAAR)
     assert found, "the fixture must detect at least one face"
     assert found == sorted(found, key=face_order_key)
     assert found == LegacyAreaOrder.order(list(found)), (

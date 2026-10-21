@@ -67,6 +67,7 @@ import numpy as np  # noqa: E402
 
 from inference import postprocess as post  # noqa: E402
 from inference import preprocess as pre  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 FINDING = "R26"
@@ -94,7 +95,7 @@ def _face_tile(size: int = 480) -> np.ndarray:
 def _reliable_detections() -> list:
     """The one proven-reliable configuration's real detections (§ module
     docstring — the fixture does not survive repositioning or padding)."""
-    return pre.detect_faces(_face_tile())
+    return pre.detect_faces(_face_tile(), policy=haar_selection())
 
 
 # --------------------------------------------------------------------------

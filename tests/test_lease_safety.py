@@ -54,6 +54,7 @@ from inference import ImagePipeline, VideoPipeline  # noqa: E402
 from jobqueue.errors import LeaseNotHeld  # noqa: E402
 from jobqueue.memory import InMemoryQueue  # noqa: E402
 from jobqueue.registry import IMAGE_QUEUE  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
 from tests.stub_handlers import StubImageHandler  # noqa: E402
 from workers.io import InMemoryResultSink  # noqa: E402
 from workers.runner import WorkerRunner  # noqa: E402
@@ -358,7 +359,8 @@ def test_real_pipelines_do_not_hold_the_event_loop():
         ".jpg", np.random.default_rng(1).integers(0, 255, (900, 900, 3), dtype=np.uint8)
     )[1].tobytes()
 
-    ticks, worst = asyncio.run(measure(ImagePipeline().analyze_image(_img_spec(image), image)))
+    pipeline = ImagePipeline(face_selection=haar_selection())  # event-loop behaviour under test
+    ticks, worst = asyncio.run(measure(pipeline.analyze_image(_img_spec(image), image)))
     assert ticks > 0, "the image pipeline held the event loop for the whole analysis"
     assert worst < LEASE / 3, (
         f"image analysis blocked the loop for {worst:.3f}s, longer than a "

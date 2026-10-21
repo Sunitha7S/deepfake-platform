@@ -44,6 +44,9 @@ from contracts.enums import MediaKind  # noqa: E402
 from contracts.job import JobSpec  # noqa: E402
 from inference import ImagePipeline, VideoPipeline  # noqa: E402
 from inference.preprocess import extract_frames  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
+
+_HAAR = haar_selection()  # the timing contract, not the detector, is under test
 from inference.timing import (  # noqa: E402
     INFERENCE,
     PREPROCESS,
@@ -93,7 +96,7 @@ CLIP = _clip()
 
 
 def _bundles():
-    yield "image", asyncio.run(ImagePipeline().analyze_image(_spec(IMAGE), IMAGE))
+    yield "image", asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(_spec(IMAGE), IMAGE))
     yield "video", asyncio.run(
         VideoPipeline().analyze_video(_spec(CLIP, MediaKind.VIDEO), CLIP)
     )
@@ -144,7 +147,7 @@ def test_a_gate_refusal_still_reports_the_work_it_did():
     preprocessing. Reporting zero for them told an operator the job was free.
     """
     tiny = cv2.imencode(".jpg", np.zeros((80, 80, 3), np.uint8))[1].tobytes()
-    bundle = asyncio.run(ImagePipeline().analyze_image(_spec(tiny), tiny))
+    bundle = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(_spec(tiny), tiny))
     assert bundle.verdict.value == "insufficient_evidence"
     assert bundle.timing.preprocess_ms > 0, (
         "a gate-refused job reported no preprocessing, but it decoded and "
@@ -182,7 +185,7 @@ def test_queued_time_is_sampled_when_analysis_starts():
     """Sampling it at the end folds the whole analysis into the queue wait."""
     waited = 1.2
     bundle = asyncio.run(
-        ImagePipeline().analyze_image(_spec(IMAGE, waited_s=waited), IMAGE)
+        ImagePipeline(face_selection=_HAAR).analyze_image(_spec(IMAGE, waited_s=waited), IMAGE)
     )
     reported = bundle.timing.queued_ms
     assert 1100 <= reported <= 1400, (
@@ -198,8 +201,8 @@ def test_queued_time_is_sampled_when_analysis_starts():
 
 def test_queue_wait_is_outside_the_total():
     """``total_ms`` covers analysis. A long wait must not inflate it."""
-    quick = asyncio.run(ImagePipeline().analyze_image(_spec(IMAGE, waited_s=0.0), IMAGE))
-    stale = asyncio.run(ImagePipeline().analyze_image(_spec(IMAGE, waited_s=5.0), IMAGE))
+    quick = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(_spec(IMAGE, waited_s=0.0), IMAGE))
+    stale = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(_spec(IMAGE, waited_s=5.0), IMAGE))
     assert stale.timing.queued_ms > quick.timing.queued_ms + 4000
     assert stale.timing.total_ms < 4000, (
         "a five-second queue wait leaked into total_ms"

@@ -80,8 +80,12 @@ from contracts.enums import Verdict  # noqa: E402
 from inference import postprocess as post  # noqa: E402
 from inference import preprocess as pre  # noqa: E402
 from inference.preprocess import FaceBox, face_order_key  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
 
 ROOT = str(Path(__file__).resolve().parent.parent)
+# R14/R15 are properties of Haar's cascade and its ordering; the Haar detector
+# stays in the codebase after any detector change, so these keep testing it.
+_HAAR = haar_selection()
 TMP = Path(tempfile.mkdtemp(prefix="dfp-inference-det-"))
 BAND = ThresholdInfo.at_margin(value=0.62, margin=DEFAULT_LOG_ODDS_MARGIN, target_fpr=0.02)
 
@@ -230,7 +234,7 @@ def test_choosing_the_other_tied_face_changes_the_verdict():
 def test_detect_faces_uses_the_shipped_ordering():
     """The unit fix must actually be wired into the function that ships."""
     img = _face_image()
-    found = pre.detect_faces(img)
+    found = pre.detect_faces(img, policy=_HAAR)
     assert found, "the fixture must detect at least one face"
     assert found == sorted(found, key=face_order_key)
 
@@ -243,7 +247,7 @@ def test_detect_faces_uses_the_shipped_ordering():
 def test_face_detection_is_repeat_invariant():
     img = _face_image()
     runs = {
-        tuple((b.x, b.y, b.width, b.height) for b in pre.detect_faces(img))
+        tuple((b.x, b.y, b.width, b.height) for b in pre.detect_faces(img, policy=_HAAR))
         for _ in range(8)
     }
     assert len(runs) == 1
@@ -256,7 +260,7 @@ def test_face_detection_is_invariant_to_thread_count():
     try:
         for threads in (1, 2, 4, 8):
             cv2.setNumThreads(threads)
-            results.add(tuple((b.x, b.y, b.width, b.height) for b in pre.detect_faces(img)))
+            results.add(tuple((b.x, b.y, b.width, b.height) for b in pre.detect_faces(img, policy=_HAAR)))
     finally:
         cv2.setNumThreads(0)
     assert len(results) == 1, f"detection moved with thread count: {results}"
@@ -264,7 +268,7 @@ def test_face_detection_is_invariant_to_thread_count():
 
 def test_crop_and_prepare_are_repeat_invariant():
     img = _face_image()
-    face = pre.detect_faces(img)[0]
+    face = pre.detect_faces(img, policy=_HAAR)[0]
     assert len({_sha(pre.crop_face(img, face)) for _ in range(6)}) == 1
     assert len({_sha(pre.prepare_image(pre.crop_face(img, face), size=384)) for _ in range(6)}) == 1
 
@@ -339,7 +343,7 @@ def test_abstention_boundaries_are_exact_integer_comparisons():
     assert isinstance(caps.min_face_px, int)
     assert isinstance(caps.min_short_edge, int)
     img = _face_image()
-    assert len({pre.detect_faces(img)[0].short_edge for _ in range(6)}) == 1
+    assert len({pre.detect_faces(img, policy=_HAAR)[0].short_edge for _ in range(6)}) == 1
 
 
 # --------------------------------------------------------------------------
@@ -372,6 +376,7 @@ cv2.setNumThreads(int(os.environ.get("DFP_TEST_THREADS", "0")))
 from contracts.enums import MediaKind
 from contracts.job import JobSpec
 from inference import ImagePipeline, VideoPipeline
+from tests.detector_fixtures import haar_selection
 
 out = {{}}
 for kind, path, mime in (("image", r"{img_path}", "image/png"),
@@ -382,7 +387,7 @@ for kind, path, mime in (("image", r"{img_path}", "image/png"),
                    storage_key="u", sha256=hashlib.sha256(data).hexdigest(),
                    size_bytes=len(data), declared_mime=mime, model_version="v",
                    idempotency_key="k", submitted_at=datetime(2026, 1, 1, tzinfo=UTC))
-    pipe = ImagePipeline() if kind == "image" else VideoPipeline()
+    pipe = ImagePipeline(face_selection=haar_selection()) if kind == "image" else VideoPipeline()
     fn = pipe.analyze_image if kind == "image" else pipe.analyze_video
     b = asyncio.run(fn(spec, data))
     out[kind] = {{
@@ -456,7 +461,7 @@ def test_an_upstream_pixel_change_still_moves_everything():
     pipeline is robust".
     """
     img = _face_image()
-    face = pre.detect_faces(img)[0]
+    face = pre.detect_faces(img, policy=_HAAR)[0]
     base = pre.prepare_image(pre.crop_face(img, face), size=384)
 
     nudged = img.copy()
@@ -645,8 +650,8 @@ def test_a_shared_cascade_returns_one_jobs_box_for_another_jobs_media():
 def test_the_shipped_detector_never_returns_another_files_box():
     """The fix, on the severe case. Prevention, not mitigation."""
     a, b = _face_image(), _shifted_face_image()
-    truth_a = tuple(pre.detect_faces(a))
-    truth_b = tuple(pre.detect_faces(b))
+    truth_a = tuple(pre.detect_faces(a, policy=_HAAR))
+    truth_b = tuple(pre.detect_faces(b, policy=_HAAR))
     assert truth_a and truth_b and truth_a != truth_b
 
     import threading as _threading
@@ -655,7 +660,7 @@ def test_the_shipped_detector_never_returns_another_files_box():
     guard = _threading.Lock()
 
     def worker(tag: str, image: np.ndarray) -> None:
-        local = [tuple(pre.detect_faces(image)) for _ in range(40)]
+        local = [tuple(pre.detect_faces(image, policy=_HAAR)) for _ in range(40)]
         with guard:
             collected[tag].extend(local)
 
@@ -678,8 +683,8 @@ def test_the_shipped_detector_is_unaffected_by_concurrency():
     mechanism is gone rather than narrowed.
     """
     img = _face_image()
-    truth = tuple(pre.detect_faces(img))
-    answers = _detect_in_parallel(lambda i: tuple(pre.detect_faces(i)), img)
+    truth = tuple(pre.detect_faces(img, policy=_HAAR))
+    answers = _detect_in_parallel(lambda i: tuple(pre.detect_faces(i, policy=_HAAR)), img)
     wrong = sum(1 for a in answers if a != truth)
     assert wrong == 0, f"{wrong}/{len(answers)} concurrent detections disagreed"
 
@@ -704,7 +709,7 @@ def test_concurrent_analyses_of_one_file_publish_one_verdict():
     ok, buf = cv2.imencode(".png", cv2.cvtColor(_face_image(), cv2.COLOR_RGB2BGR))
     assert ok
     data = buf.tobytes()
-    pipeline = ImagePipeline()
+    pipeline = ImagePipeline(face_selection=_HAAR)
 
     def make_spec() -> JobSpec:
         return JobSpec(
@@ -761,7 +766,7 @@ def test_the_cascade_is_not_shared_between_threads():
     guard = _threading.Lock()
 
     def grab() -> None:
-        pre.detect_faces(_face_image(size=96))
+        pre.detect_faces(_face_image(size=96), policy=_HAAR)
         with guard:
             seen[_threading.current_thread().name] = id(pre._face_cascade())
 
@@ -796,7 +801,7 @@ def test_runtime_identity_cannot_detect_the_cascade_race():
             break
     else:  # pragma: no cover - covered by the dedicated defect test
         print("        (race did not fire this round; identity claim unchanged)")
-        answers = {(), tuple(pre.detect_faces(img))}
+        answers = {(), tuple(pre.detect_faces(img, policy=_HAAR))}
     assert len(answers) > 1
     assert decode_identity() == before, (
         "the decode identity moved across the divergence; if that is genuinely "

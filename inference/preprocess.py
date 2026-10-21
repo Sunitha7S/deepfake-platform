@@ -1022,6 +1022,18 @@ class SCRFDDetector:
     _NUM_ANCHORS = 2
     _INPUT_MEAN = 127.5
     _INPUT_STD = 128.0
+    _DYNAMIC_INPUT_SIZE = (640, 640)
+    """Letterbox size for an export whose input height/width are dynamic.
+
+    SCRFD's stride-8/16/32 heads emit ``ceil(H/s)`` cells while
+    :meth:`_anchor_centers` builds an ``H // s`` grid, so running a dynamic
+    graph at an image's own size misaligns scores and anchors whenever a side
+    is not a multiple of 32 — an ``IndexError`` or silently misplaced boxes.
+    The upstream reference never runs that way: it letterboxes into a fixed
+    ``det_size``, default ``(640, 640)``, a multiple of every stride. Pinned
+    here rather than taken from the policy because nothing varies it; if it
+    ever becomes configurable it belongs in :class:`FaceSelectionPolicy`, like
+    every other verdict-affecting detector knob (R17)."""
 
     def __init__(self, model_path: str) -> None:
         self._model_path = str(model_path)
@@ -1052,8 +1064,9 @@ class SCRFDDetector:
         session = self._session()
         input_meta = session.get_inputs()[0]
         shape = input_meta.shape
-        target_h = shape[2] if isinstance(shape[2], int) else image.shape[0]
-        target_w = shape[3] if isinstance(shape[3], int) else image.shape[1]
+        dynamic_h, dynamic_w = self._DYNAMIC_INPUT_SIZE
+        target_h = shape[2] if isinstance(shape[2], int) else dynamic_h
+        target_w = shape[3] if isinstance(shape[3], int) else dynamic_w
 
         blob, det_scale = self._prepare(image, target_h, target_w)
 

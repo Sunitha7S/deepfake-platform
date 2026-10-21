@@ -3599,3 +3599,28 @@ yet). Everything else (R13, R18's capability half, R24, R6-a/R6-b, R10,
 R23's occupancy half, R16 Option 2, R26's SCRFD-gated halves) is a separate
 program gated on SCRFD / a video face stage / a real model — not a batch.
 See `docs/PROJECT_ROADMAP.md` for full execution order.
+
+## Still open after the SCRFD program's Phases 1–3 and Phase-4 prerequisite work (B28–B30)
+
+**R28 reachability** is pinned by three tests in `tests/test_crop_identity.py`
+(the fix itself stays deferred). **SCRFD Phase 1 (B28)** extracted the
+`FaceDetector` protocol and `HaarDetector` with no behaviour change. **Phase 2**
+added `SCRFDDetector`, `detect_faces` dispatch on `policy.detector`, and two
+`FaceSelectionPolicy` fields (`confidence_threshold`, `nms_iou_threshold`,
+`None` under Haar) — a structural `.f.` move, `e629642c` → `f8244ad0`; the
+shipped default is still Haar. **Phase 3 (B29)** replaced the study's
+across-image amplification statistic with the pooled, multi-realisation,
+cluster-bootstrap one R13's criterion actually describes. **B30** (Phase-4
+prerequisites): tests that run detection now name the Haar policy explicitly
+and a tripwire forbids detection through the implicit default
+(`tests/test_detector_pinning.py`); `SCRFDDetector` letterboxes dynamic-input
+exports to 640×640 (it previously raised or misplaced boxes on any side not a
+multiple of 32); `tests/scrfd_corpus.py` builds a stratified evaluation corpus
+with a SHA-256 manifest; the study records asset digest, corpus digest,
+thresholds, seed and library versions. No version axis moved in B29/B30.
+
+**R13 is still Open, and is not measured.** The measurement tool is ready; the
+inputs are not: the SCRFD weights are licensed non-commercial-research-only and
+the licence has not been accepted, so no asset is fetched; no evaluation corpus
+is acquired. See `docs/SCRFD_PHASE4_PREREQUISITES_PLAN.md` and `docs/SCRFD_ASSET.md`.
+Every other open item listed after Batch 27 is unchanged.

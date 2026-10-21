@@ -42,6 +42,7 @@ from inference.preprocess import (  # noqa: E402
     to_rgb,
 )
 from inference.protocol import UnreadableMedia, UnsupportedMedia  # noqa: E402
+from tests.detector_fixtures import haar_selection  # noqa: E402
 
 
 def _encode(ext: str, size: int = 64, params=None) -> bytes:
@@ -298,7 +299,7 @@ def test_crop_face_stays_inside_the_image_and_is_never_empty():
 def test_detect_faces_returns_empty_on_noise_rather_than_raising():
     """No face is a normal answer, not an error."""
     noise = np.random.default_rng(0).integers(0, 255, (200, 200, 3), dtype=np.uint8)
-    assert isinstance(detect_faces(noise), list)
+    assert isinstance(detect_faces(noise, policy=haar_selection()), list)
 
 
 # --------------------------------------------------------------------------

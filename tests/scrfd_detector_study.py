@@ -60,6 +60,13 @@ INPUTS THIS SCRIPT NEEDS AND DOES NOT SUPPLY
   seed. ``docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md`` Sec5.4 recommends running
   at least twice with different seeds and confirming both runs' CIs are
   consistent before treating a result as Phase-4-gating evidence.
+* ``$DFP_SCRFD_STUDY_JSON`` (optional) — a path; the full result, including
+  the asset digest, corpus manifest digest, thresholds, seed and library
+  versions, is written there as the machine-readable half of the evidence
+  record (``docs/SCRFD_PHASE4_PREREQUISITES_PLAN.md`` §C.4).
+
+Build the photo directory with ``tests/scrfd_corpus.py`` so it carries a
+``MANIFEST.json`` whose ``corpus_digest`` matches what this script records.
 
 Neither of the first two is committed to this repository. Running this
 script without both set prints what is missing and exits 0 (a missing input
@@ -78,6 +85,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 from decode_study import surrogate_logit  # noqa: E402
+from scrfd_corpus import manifest_digest  # noqa: E402
 
 from inference import preprocess as pre  # noqa: E402
 
@@ -338,6 +346,21 @@ def face_loss_summary(image_trials: list[dict]) -> dict:
     }
 
 
+def _environment() -> dict:
+    import platform
+
+    import cv2
+    import onnxruntime
+
+    return {
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "numpy": np.__version__,
+        "opencv": cv2.__version__,
+        "onnxruntime": onnxruntime.__version__,
+    }
+
+
 def measure(
     model_path: str,
     photo_dir: str,
@@ -364,6 +387,15 @@ def measure(
     losses = face_loss_summary(image_trials)
 
     return {
+        # Provenance: which asset, which corpus, which thresholds, which stack.
+        # A result without these is not comparable to any other result
+        # (docs/SCRFD_PHASE4_PREREQUISITES_PLAN.md §A.5, §B.5, §C.2, §C.4).
+        "asset_digest": pre.scrfd_asset_digest(model_path),
+        "corpus_digest": manifest_digest(Path(photo_dir)),
+        "confidence_threshold": policy.confidence_threshold,
+        "nms_iou_threshold": policy.nms_iou_threshold,
+        "seed": seed,
+        "environment": _environment(),
         "n_images": len(images),
         "k_realisations": k_realisations,
         "total_trials": losses["total_trials"],
@@ -392,6 +424,13 @@ def report(result: dict) -> bool:
     )
     amp_lo, amp_hi = result["amplification_ci"]
     edge_lo, edge_hi = result["max_short_edge_move_ci"]
+    print(f"\n  asset digest               : {result['asset_digest']}")
+    print(f"  corpus digest              : {result['corpus_digest']}")
+    print(
+        f"  thresholds (conf / nms)    : {result['confidence_threshold']} / "
+        f"{result['nms_iou_threshold']}"
+    )
+    print(f"  seed                       : {result['seed']}")
     print(f"\n  images measured           : {result['n_images']}")
     print(f"  realisations per image     : {result['k_realisations']}")
     print(f"  total trials (N x K)       : {result['total_trials']}")
@@ -450,8 +489,18 @@ def main() -> int:
     seed = int(os.environ.get("DFP_SCRFD_STUDY_SEED", "0"))
     result = measure(model_path, photo_dir, seed=seed)
     cleared = report(result)
+    evidence_path = os.environ.get("DFP_SCRFD_STUDY_JSON")
+    if evidence_path:
+        import json
+
+        Path(evidence_path).write_text(
+            json.dumps({**result, "clears_criterion": cleared}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     head("Result")
     print(f"  seed used: {seed}")
+    if evidence_path:
+        print(f"  machine-readable record: {evidence_path}")
     print(
         "  Per docs/SCRFD_PHASE3_MEASUREMENT_PLAN.md Sec5.4: run at least twice "
         "with different $DFP_SCRFD_STUDY_SEED values and confirm both runs' "

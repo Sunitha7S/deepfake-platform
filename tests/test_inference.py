@@ -45,8 +45,13 @@ from inference.models import (  # noqa: E402
     StubBackend,
     default_registry,
 )
+from tests.detector_fixtures import haar_selection  # noqa: E402
 
-FORBIDDEN = ("fastapi", "starlette", "backend", "workers", "storage", "jobqueue")
+# Pipeline mechanics on Haar-tuned fixtures: name the detector rather than
+# inheriting the shipped default (tests/detector_fixtures.py).
+_HAAR = haar_selection()
+
+FORBIDDEN =("fastapi", "starlette", "backend", "workers", "storage", "jobqueue")
 
 
 # --------------------------------------------------------------------------
@@ -106,7 +111,7 @@ def _first_gate_passing_seed(limit: int = 24) -> bytes:
 
     for seed in range(limit):
         data = face_image(seed)
-        if detect_faces(decode_image(data)):
+        if detect_faces(decode_image(data), policy=_HAAR):
             return data
     raise AssertionError(
         f"no synthetic face was detectable in {limit} seeds; the image fixtures "
@@ -138,7 +143,7 @@ class Recorder:
 def test_identical_bytes_produce_identical_image_bundles():
     data = face_image(1)
     job = uuid4()
-    engine = ImagePipeline()
+    engine = ImagePipeline(face_selection=_HAAR)
     a = asyncio.run(engine.analyze_image(spec(data, job_id=job), data))
     b = asyncio.run(engine.analyze_image(spec(data, job_id=job), data))
     assert a.verdict is b.verdict
@@ -147,7 +152,7 @@ def test_identical_bytes_produce_identical_image_bundles():
 
 
 def test_different_bytes_produce_different_scores():
-    engine = ImagePipeline()
+    engine = ImagePipeline(face_selection=_HAAR)
     scores = set()
     for seed in range(6):
         data = face_image(seed)
@@ -178,12 +183,14 @@ def test_scoring_does_not_depend_on_process_state_or_clock():
         "import asyncio,sys,hashlib;sys.path.insert(0,'.');"
         "from datetime import datetime,UTC;from uuid import UUID;"
         "from inference import ImagePipeline;from contracts.job import JobSpec;"
+        "from tests.detector_fixtures import haar_selection;"
         "from contracts.enums import MediaKind;"
         f"d=open({str(Path(tempfile.mkdtemp()) / 'x.jpg')!r},'rb').read();"
         "s=JobSpec(job_id=UUID(int=7),media_kind=MediaKind.IMAGE,storage_key='u',"
         f"sha256={digest!r},size_bytes=len(d),declared_mime='image/jpeg',"
         "model_version='stub-0',idempotency_key='k',submitted_at=datetime.now(UTC));"
-        "b=asyncio.run(ImagePipeline().analyze_image(s,d));print(b.p_fake)"
+        "b=asyncio.run(ImagePipeline(face_selection=haar_selection()).analyze_image(s,d));"
+        "print(b.p_fake)"
     )
     path = Path(script.split("open(")[1].split(",'rb'")[0].strip("'"))
     path.write_bytes(data)
@@ -192,7 +199,7 @@ def test_scoring_does_not_depend_on_process_state_or_clock():
         [sys.executable, "-c", script], capture_output=True, text=True, cwd=here, timeout=180
     )
     assert out.returncode == 0, out.stderr[-400:]
-    local = asyncio.run(ImagePipeline().analyze_image(spec(data), data)).p_fake
+    local = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data), data)).p_fake
     assert out.stdout.strip() == str(local), "score changed between processes"
 
 
@@ -204,7 +211,7 @@ def test_scoring_does_not_depend_on_process_state_or_clock():
 def test_image_bundle_validates_and_carries_the_job_id():
     data = face_image(2)
     job = uuid4()
-    bundle = asyncio.run(ImagePipeline().analyze_image(spec(data, job_id=job), data))
+    bundle = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data, job_id=job), data))
     EvidenceBundle.model_validate(bundle.model_dump(mode="json"))
     assert bundle.job_id == job
     assert bundle.media.kind is MediaKind.IMAGE
@@ -212,7 +219,7 @@ def test_image_bundle_validates_and_carries_the_job_id():
 
 def test_no_face_path_abstains():
     data = flat_image()
-    bundle = asyncio.run(ImagePipeline().analyze_image(spec(data), data))
+    bundle = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data), data))
     assert bundle.verdict is Verdict.INSUFFICIENT_EVIDENCE
     assert bundle.p_fake is None
     assert bundle.quality.gate_passed is False
@@ -221,7 +228,7 @@ def test_no_face_path_abstains():
 
 def test_low_quality_path_abstains_before_the_model_runs():
     data = flat_image(size=40)
-    bundle = asyncio.run(ImagePipeline().analyze_image(spec(data), data))
+    bundle = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data), data))
     assert bundle.verdict is Verdict.INSUFFICIENT_EVIDENCE
     assert bundle.timing.inference_ms == 0, "the model ran despite a failed gate"
 
@@ -229,7 +236,7 @@ def test_low_quality_path_abstains_before_the_model_runs():
 def test_wrong_media_kind_is_rejected():
     data = face_image()
     try:
-        asyncio.run(ImagePipeline().analyze_image(spec(data, MediaKind.VIDEO), data))
+        asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data, MediaKind.VIDEO), data))
     except UnsupportedMedia:
         return
     raise AssertionError("an image pipeline accepted a video job")
@@ -238,7 +245,7 @@ def test_wrong_media_kind_is_rejected():
 def test_malformed_image_raises_unreadable():
     data = b"definitely not an image"
     try:
-        asyncio.run(ImagePipeline().analyze_image(spec(data), data))
+        asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data), data))
     except UnreadableMedia:
         return
     raise AssertionError("malformed bytes were analysed")
@@ -308,11 +315,14 @@ def test_malformed_video_raises_unreadable():
 def test_image_and_video_pipelines_agree_on_contract_shape():
     """Parity: both produce bundles the same consumer can read."""
     img_data, vid_data = face_image(4), clip()
-    a = asyncio.run(ImagePipeline().analyze_image(spec(img_data), img_data))
+    a = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(img_data), img_data))
     b = asyncio.run(
-        VideoPipeline().analyze_video(spec(vid_data, MediaKind.VIDEO), vid_data)
+        VideoPipeline(face_selection=_HAAR).analyze_video(spec(vid_data, MediaKind.VIDEO), vid_data)
     )
-    image_engine, video_engine = ImagePipeline(), VideoPipeline()
+    # The video pipeline folds the face policy into its identity too, so the
+    # identity-parity assertion below needs both sides pinned alike.
+    image_engine = ImagePipeline(face_selection=_HAAR)
+    video_engine = VideoPipeline(face_selection=_HAAR)
     for bundle, engine in ((a, image_engine), (b, video_engine)):
         EvidenceBundle.model_validate(bundle.model_dump(mode="json"))
         assert {x.id for x in bundle.branches} == {BranchId.A, BranchId.B, BranchId.P}
@@ -507,7 +517,7 @@ def test_pipelines_run_without_a_gpu():
     """Same delta-based check as the stub backend, for the same reason."""
     before = "torch" in sys.modules
     data = face_image(9)
-    asyncio.run(ImagePipeline().analyze_image(spec(data), data))
+    asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data), data))
     assert ("torch" in sys.modules) == before, "the stub path imported torch"
 
 
@@ -544,7 +554,7 @@ def test_suite_catches_nondeterministic_scoring():
 
     registry = ModelRegistry()
     registry.register(ModelSpec(name="drift", version="v", backend="stub"))
-    engine = ImagePipeline(model_name="drift", registry=registry)
+    engine = ImagePipeline(model_name="drift", registry=registry, face_selection=_HAAR)
     loaded = registry.load_model("drift")
     loaded.backend = Drifting(registry.get_spec("drift"))
 
@@ -582,7 +592,7 @@ def test_suite_catches_out_of_bounds_probability():
 
     registry = ModelRegistry()
     registry.register(ModelSpec(name="boom", version="v", backend="stub"))
-    engine = ImagePipeline(model_name="boom", registry=registry)
+    engine = ImagePipeline(model_name="boom", registry=registry, face_selection=_HAAR)
     loaded = registry.load_model("boom")
     loaded.backend = Exploding(registry.get_spec("boom"))
 
@@ -596,7 +606,7 @@ def test_suite_catches_out_of_bounds_probability():
 def test_suite_catches_an_invalid_verdict_derivation():
     """Tamper with a valid bundle; the contract must reject it."""
     data = face_image(7)
-    bundle = asyncio.run(ImagePipeline().analyze_image(spec(data), data))
+    bundle = asyncio.run(ImagePipeline(face_selection=_HAAR).analyze_image(spec(data), data))
     if bundle.p_fake is None:
         return  # abstained; nothing to contradict
     payload = bundle.model_dump(mode="json")

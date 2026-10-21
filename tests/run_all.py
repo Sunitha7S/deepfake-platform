@@ -29,8 +29,10 @@ import test_evaluation_metrics  # noqa: E402
 import test_evaluation_operating  # noqa: E402
 import test_evaluation_protocol  # noqa: E402
 import test_evaluation_svg  # noqa: E402
+import test_detector_pinning  # noqa: E402
 import test_face_detector_abstraction  # noqa: E402
 import test_face_selection_identity  # noqa: E402
+import test_scrfd_corpus  # noqa: E402
 import test_scrfd_detector  # noqa: E402
 import test_scrfd_measurement_methodology  # noqa: E402
 import test_video_face_semantics  # noqa: E402
@@ -132,6 +134,8 @@ SUITES = [
     ("S8-B28 face detector abstraction (SCRFD Phase 1)", test_face_detector_abstraction),
     ("S8-B28 SCRFD detector, wired not defaulted (SCRFD Phase 2)", test_scrfd_detector),
     ("S8-B29 SCRFD measurement methodology (SCRFD Phase 3)", test_scrfd_measurement_methodology),
+    ("S8-B30 detector pinning for cutover (SCRFD Phase 4 P5)", test_detector_pinning),
+    ("S8-B30 R13 evaluation corpus + manifest (SCRFD Phase 4 P3)", test_scrfd_corpus),
 ]
 
 
