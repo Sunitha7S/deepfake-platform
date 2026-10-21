@@ -12,6 +12,7 @@ pointing the right way.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -20,8 +21,14 @@ from jobqueue.base import QueueBackend
 from jobqueue.memory import InMemoryQueue
 from jobqueue.policy import RetryPolicy
 from jobqueue.redis import RedisQueue
+from jobqueue.sqlite import SQLiteQueue
 
-BackendKind = Literal["memory", "redis"]
+BackendKind = Literal["memory", "sqlite", "redis"]
+
+SHARED_KINDS: frozenset[str] = frozenset({"sqlite", "redis"})
+"""Backends a *separate* process can reach. ``memory`` is not one: the API and
+a worker each build their own, and a job enqueued in one is invisible to the
+other. ``backend.worker_main`` refuses to start on anything outside this set."""
 
 IMAGE_QUEUE = "image"
 VIDEO_QUEUE = "video"
@@ -57,10 +64,15 @@ class QueueConfig(BaseModel):
     url: str | None = Field(default=None, description="Required when kind is 'redis'.")
     namespace: str = "dfp"
 
+    # sqlite
+    path: Path | None = Field(default=None, description="Required when kind is 'sqlite'.")
+
     @model_validator(mode="after")
     def _required_fields_per_kind(self) -> QueueConfig:
         if self.kind == "redis" and not self.url:
             raise ValueError("url is required when kind='redis'")
+        if self.kind == "sqlite" and self.path is None:
+            raise ValueError("path is required when kind='sqlite'")
         return self
 
     def __repr__(self) -> str:
@@ -74,6 +86,9 @@ def build_queue(config: QueueConfig) -> QueueBackend:
     """Return a backend. Typed as the protocol, never as a concrete class."""
     if config.kind == "memory":
         return InMemoryQueue(policy=config.policy)
+    if config.kind == "sqlite":
+        assert config.path is not None  # enforced by QueueConfig
+        return SQLiteQueue(config.path, policy=config.policy)
     return RedisQueue(
         url=config.url or "",
         namespace=config.namespace,

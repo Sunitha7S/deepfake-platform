@@ -12,8 +12,10 @@ cycles forever, and the queue looks busy while completing nothing. Expiry runs
 the same retry policy as an explicit nack, so a poison job dead-letters on
 schedule.
 
-Not durable and not shared between processes. Fine for development and tests,
-and the reason ``RedisQueue`` exists behind the same protocol.
+Not durable and not shared between processes. Fine for tests and for a single
+process that hosts both the API and its workers; useless the moment the API and
+``backend.worker_main`` run separately, which is why ``SQLiteQueue`` (one host)
+and ``RedisQueue`` (many hosts, still a skeleton) exist behind the same protocol.
 """
 
 from __future__ import annotations

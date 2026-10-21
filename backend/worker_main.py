@@ -26,7 +26,8 @@ import logging
 import signal
 
 from backend.config import get_settings
-from jobqueue.registry import build_queue
+from backend.logging import configure_logging
+from jobqueue.registry import SHARED_KINDS, build_queue
 from storage.registry import build_storage
 from workers.registry import build_all_workers
 from workers.runner import WorkerReport, WorkerRunner, verify_engine_alignment_at_startup
@@ -97,6 +98,23 @@ async def _run_all(
                 loop.remove_signal_handler(sig)
 
 
+def require_shared_queue(queue_kind: str) -> None:
+    """Refuse to run a worker on a queue no other process can reach.
+
+    This module is a separate process from the API by construction. With
+    ``queue_kind='memory'`` the API enqueues into its own dictionary and this
+    process polls an empty one of its own: every submission stays ``queued``
+    forever, and nothing anywhere reports an error. Failing at boot, with the
+    setting that fixes it, is the only point where that is visible.
+    """
+    if queue_kind not in SHARED_KINDS:
+        raise RuntimeError(
+            f"queue_kind={queue_kind!r} cannot be shared with the API process, so "
+            "this worker would never receive a job. Set DFP_QUEUE_KIND=sqlite (and "
+            "the same DFP_QUEUE_PATH for the API and the worker) for one host."
+        )
+
+
 async def main() -> dict[str, WorkerReport]:
     """Build the real queue, storage and workers, then run them.
 
@@ -106,8 +124,15 @@ async def main() -> dict[str, WorkerReport]:
     backend they are pointed at.
     """
     settings = get_settings()
+    # The API configures logging in create_app(); without the same call here
+    # the worker process logged nothing at all below WARNING.
+    configure_logging(level=settings.log_level, json_output=settings.log_json)
+    require_shared_queue(settings.queue_kind)
     storage = build_storage(settings.storage_config())
     queue = build_queue(settings.queue_config())
+    # Same field the API logs at boot: two processes pointed at different queue
+    # files is otherwise invisible — both start cleanly and never meet.
+    log.info("worker starting", extra={"queue_backend": repr(queue)})
     runners = build_all_workers(queue=queue, storage=storage)
     return await _run_all(
         runners,

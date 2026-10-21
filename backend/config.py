@@ -251,7 +251,19 @@ class Settings(BaseSettings):
     )
 
     # ---- queue -----------------------------------------------------------
-    queue_kind: Literal["memory", "redis"] = "memory"
+    queue_kind: Literal["memory", "sqlite", "redis"] = Field(
+        default="memory",
+        description=(
+            "'memory' lives inside one process: fine for tests, unusable when the "
+            "API and backend.worker_main run as separate processes, which is how "
+            "they are deployed. 'sqlite' shares one file between processes on one "
+            "host; 'redis' is the multi-host backend (not yet implemented)."
+        ),
+    )
+    queue_path: Path = Field(
+        default=Path("./var/queue.sqlite3"),
+        description="Queue database file when queue_kind is 'sqlite'.",
+    )
     redis_url: str | None = Field(default=None, description="Required when queue_kind='redis'.")
     redis_namespace: str = "dfp"
 
@@ -347,6 +359,10 @@ class Settings(BaseSettings):
             raise ValueError("storage_bucket is required when storage_kind='s3'")
         if self.queue_kind == "redis" and not self.redis_url:
             raise ValueError("redis_url is required when queue_kind='redis'")
+        if self.queue_kind == "memory":
+            # Production runs the API and the worker as separate processes; an
+            # in-process queue would accept every job and never deliver one.
+            raise ValueError("queue_kind='memory' cannot be used in production")
         return self
 
     @model_validator(mode="after")
@@ -383,6 +399,7 @@ class Settings(BaseSettings):
             kind=self.queue_kind,
             url=self.redis_url,
             namespace=self.redis_namespace,
+            path=self.queue_path if self.queue_kind == "sqlite" else None,
         )
 
     # ---- derived --------------------------------------------------------

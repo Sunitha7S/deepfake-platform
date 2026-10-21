@@ -2,8 +2,10 @@
 
 Image and video deepfake detection. Web application, no terminal workflow.
 
-**Status: S0 complete.** The contracts package is built and tested. No models, no
-backend, no frontend yet — by design.
+**Status:** the API, job queue, object storage, worker and inference pipeline are
+built and run end to end (see [Running the platform locally](#running-the-platform-locally)).
+Scoring is a **deterministic stub**, not a trained model — a verdict reflects the
+file's hash, not its authenticity. There is no frontend yet.
 
 ## Why contracts first
 
@@ -93,7 +95,66 @@ run `python tests/run_all.py` directly.
 error (`os error 396`), the repo is likely under a cloud-synced folder
 (OneDrive and similar). Set `UV_LINK_MODE=copy` and retry.
 
-## Running
+## Running the platform locally
+
+The API and the worker are **separate processes**. They meet through two shared
+places: the job queue and the storage root. Both processes read `DFP_*`
+environment variables, or a `.env` file in the directory they are started from.
+
+**1. Point both processes at a shared queue.** Create `.env` in the repo root
+(it is gitignored):
+
+```
+DFP_QUEUE_KIND=sqlite
+```
+
+Everything else can stay at its default, which both processes then share:
+
+| Setting | Default | What lives there |
+|---|---|---|
+| `DFP_QUEUE_PATH` | `./var/queue.sqlite3` | The job queue: one SQLite file, plus its `-wal`/`-shm` side files |
+| `DFP_STORAGE_ROOT` | `./var/storage` | Uploaded files, upload sessions, results |
+
+Relative paths resolve against **each process's own working directory**. Start
+both from the repo root, or set both variables to absolute paths. To confirm
+the processes agree, compare the `queue_backend` field in the API's
+`dependencies checked` log line with the one in the worker's `worker starting`
+line: they must name the same file. `var/` is gitignored; delete it to reset all
+local state.
+
+**2. Start the API.** uvicorn is not a declared dependency, so `--with` adds it
+to a temporary overlay without touching `uv.lock`:
+
+```bash
+uv run --locked --with uvicorn uvicorn backend.app:create_app --factory --host 127.0.0.1 --port 8000
+```
+
+**3. Start the worker**, in a second terminal, from the same directory:
+
+```bash
+uv run --locked python -m backend.worker_main
+```
+
+Open `http://127.0.0.1:8000/docs`. A submission is `POST /uploads` → `PUT` the
+bytes to the returned `upload.url` → `POST /analyze` → poll `GET /jobs/{job_id}`
+→ `GET /results/{job_id}`.
+
+Constraints worth knowing:
+
+- **`DFP_QUEUE_KIND=memory` is the default and only works inside one process**
+  (the test suite drives API and workers that way). A worker started on it
+  could never receive a job, so `backend.worker_main` refuses to boot on it, and
+  `DFP_ENVIRONMENT=prod` rejects it at configuration time.
+- **The SQLite queue is single-host.** Its locking is only as reliable as the
+  filesystem's: local disk, never NFS or SMB. The multi-host backend is meant to
+  be Redis, and `jobqueue/redis.py` is still a skeleton that raises
+  `NotImplementedError` — it is not a working option today.
+- Job claims are atomic across processes (`BEGIN IMMEDIATE` transactions), a
+  worker that dies mid-job has its lease expire and the job retried with backoff,
+  and a job is dead-lettered after its attempt budget or on a permanent error
+  such as an undecodable file. See `jobqueue/sqlite.py`.
+
+## Running the test suites
 
 ```bash
 python tests/test_contracts.py

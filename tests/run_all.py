@@ -70,6 +70,7 @@ import test_queue  # noqa: E402
 import test_result_sink_race  # noqa: E402
 import test_schema  # noqa: E402
 import test_split_lock  # noqa: E402
+import test_sqlite_queue  # noqa: E402
 import test_storage  # noqa: E402
 import test_video_branches  # noqa: E402
 import test_worker_inference_integration  # noqa: E402
@@ -136,6 +137,7 @@ SUITES = [
     ("S8-B29 SCRFD measurement methodology (SCRFD Phase 3)", test_scrfd_measurement_methodology),
     ("S8-B30 detector pinning for cutover (SCRFD Phase 4 P5)", test_detector_pinning),
     ("S8-B30 R13 evaluation corpus + manifest (SCRFD Phase 4 P3)", test_scrfd_corpus),
+    ("S8-B31 shared SQLite job queue (API + worker processes)", test_sqlite_queue),
 ]
 
 

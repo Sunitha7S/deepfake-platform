@@ -287,9 +287,12 @@ def test_queue_package_imports_nothing_it_should_not():
     import jobqueue.memory
     import jobqueue.redis
     import jobqueue.registry
+    import jobqueue.sqlite
 
     forbidden = ("fastapi", "starlette", "import torch", "from backend", "from contracts", "from storage")
-    for module in (jobqueue, jobqueue.base, jobqueue.memory, jobqueue.redis, jobqueue.registry):
+    for module in (
+        jobqueue, jobqueue.base, jobqueue.memory, jobqueue.redis, jobqueue.registry, jobqueue.sqlite
+    ):
         source = Path(module.__file__).read_text(encoding="utf-8")
         for token in forbidden:
             assert token not in source, f"{module.__name__} references {token}"

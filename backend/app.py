@@ -84,7 +84,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     ready, depths, problems = await app.state.service.health()
     log.info(
         "dependencies checked",
-        extra={"ready": ready, "queues": depths, "problems": problems or None},
+        extra={
+            "ready": ready,
+            "queue_backend": repr(app.state.queue),
+            "queues": depths,
+            "problems": problems or None,
+        },
     )
 
     # OR1 (Batch 23) — a stdlib-only *format* check on the configured
