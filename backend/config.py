@@ -309,6 +309,30 @@ class Settings(BaseSettings):
         ),
     )
     upload_url_ttl_s: int = Field(default=900, ge=60, le=86_400)
+
+    # ---- event stream (GET /events/{job_id}) -----------------------------
+    events_poll_interval_s: float = Field(
+        default=1.0,
+        gt=0.0,
+        le=30.0,
+        description="How often an open event stream re-derives the job's status.",
+    )
+    events_heartbeat_s: float = Field(
+        default=15.0,
+        gt=0.0,
+        description=(
+            "Silence after which a heartbeat frame is sent. Below the ~30-60 s "
+            "idle timeout common to proxies and load balancers."
+        ),
+    )
+    events_max_duration_s: float = Field(
+        default=600.0,
+        gt=0.0,
+        description=(
+            "An event stream closes after this long even if the job has not "
+            "finished, so a stalled job cannot hold a connection open forever."
+        ),
+    )
     result_ttl_s: int = Field(default=604_800, ge=3600, description="How long a result is kept.")
 
     # ---- limits (imported, not redeclared) ------------------------------

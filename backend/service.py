@@ -20,7 +20,10 @@ which is why it needs no cleanup, no migration and no reconciliation job.
 
 from __future__ import annotations
 
+import asyncio
 import secrets
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -32,7 +35,7 @@ from contracts.api import (
 )
 from contracts.enums import ErrorCode, JobStage, JobState, MediaKind
 from contracts.evidence import EvidenceBundle
-from contracts.job import AnalysisOptions, JobProgress, JobSpec, JobStatus
+from contracts.job import AnalysisOptions, JobProgress, JobSpec, JobStatus, ProgressEvent
 from jobqueue.base import QueueBackend
 from jobqueue.errors import JobNotFound
 from jobqueue.registry import IMAGE_QUEUE, VIDEO_QUEUE
@@ -280,6 +283,67 @@ class AnalysisService:
                 return _succeeded_status(job_id, result, self.settings.result_url(key))
 
             return _derive_status(job_id, envelope, result, self.settings.result_url(key))
+
+    async def job_events(
+        self,
+        job_id: UUID,
+        first: JobStatus,
+        is_disconnected: Callable[[], Awaitable[bool]],
+    ) -> AsyncIterator[ProgressEvent]:
+        """The ``GET /events/{job_id}`` stream: the same ``JobStatus`` that
+        ``/jobs/{job_id}`` derives, re-derived on a poll interval and sent only
+        when it changes.
+
+        ``first`` is computed by the caller *before* the response starts, so an
+        unknown job is an ordinary 404 rather than a stream that opens and dies.
+
+        Event names are the contract's (``ProgressEvent.event``): ``state`` opens
+        the stream and marks every change of state; ``progress`` a change of
+        stage or percent within a state; ``heartbeat`` repeats the current
+        status after ``events_heartbeat_s`` of silence, so idle proxies do not
+        cut the connection; ``done`` (succeeded) or ``error`` (failed,
+        cancelled) is the last frame. The stream also ends when the client
+        disconnects, when the job vanishes from both the queue and the result
+        store, or after ``events_max_duration_s`` — a job nobody is working on
+        must not pin a connection open forever; the client reconnects or polls.
+        """
+        settings = self.settings
+
+        def frame(event: str, status: JobStatus) -> ProgressEvent:
+            return ProgressEvent(event=event, job_id=job_id, status=status, at=datetime.now(UTC))
+
+        def final(status: JobStatus) -> ProgressEvent:
+            return frame("done" if status.state is JobState.SUCCEEDED else "error", status)
+
+        yield frame("state", first)
+        if first.state.is_terminal:
+            yield final(first)
+            return
+
+        last = first
+        started = last_sent = time.monotonic()
+        while time.monotonic() - started < settings.events_max_duration_s:
+            await asyncio.sleep(settings.events_poll_interval_s)
+            if await is_disconnected():
+                return
+            try:
+                status = await self.job_status(job_id)
+            except AppError:
+                return  # purged from the queue with no result left: nothing to report
+            now = time.monotonic()
+            if status.state.is_terminal:
+                yield final(status)
+                return
+            if status.state is not last.state:
+                yield frame("state", status)
+                last_sent = now
+            elif status.progress != last.progress:
+                yield frame("progress", status)
+                last_sent = now
+            elif now - last_sent >= settings.events_heartbeat_s:
+                yield frame("heartbeat", status)
+                last_sent = now
+            last = status
 
     async def result(self, job_id: UUID) -> EvidenceBundle:
         """Return the bundle, or explain precisely why there isn't one."""

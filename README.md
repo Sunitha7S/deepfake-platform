@@ -136,8 +136,18 @@ uv run --locked python -m backend.worker_main
 ```
 
 Open `http://127.0.0.1:8000/docs`. A submission is `POST /uploads` → `PUT` the
-bytes to the returned `upload.url` → `POST /analyze` → poll `GET /jobs/{job_id}`
-→ `GET /results/{job_id}`.
+bytes to the returned `upload.url` → `POST /analyze` → follow the returned
+`events_url` (`GET /events/{job_id}`, Server-Sent Events) or poll
+`GET /jobs/{job_id}` → `GET /results/{job_id}`. The stream sends the same
+`JobStatus` the poll returns: a `state` frame first, `done` or `error` last, and
+a `heartbeat` during silence. The server re-derives the status every
+`DFP_EVENTS_POLL_INTERVAL_S` (1 s) and sends a heartbeat after
+`DFP_EVENTS_HEARTBEAT_S` (15 s) without a frame. It closes after its final
+frame, or after `DFP_EVENTS_MAX_DURATION_S` (600 s) if the job never finishes.
+A stream that ends without `done` or `error` (that limit, the job being purged,
+a dropped connection) says nothing about the job: reconnect, which starts again
+from a fresh `state` frame (there is no `Last-Event-ID` resume), or poll.
+Progress is as coarse as the poll's (state changes, not per-frame percentages).
 
 Constraints worth knowing:
 

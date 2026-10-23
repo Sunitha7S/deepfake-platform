@@ -1,7 +1,7 @@
 """``GET /jobs/{job_id}`` — job status, derived rather than stored.
 
 The polling fallback for clients without SSE, and the same ``JobStatus`` shape
-the event stream will carry later. Building both on one model lets a client
+the event stream (``GET /events/{job_id}``) carries. Building both on one model lets a client
 implement polling first and switch to SSE without touching its rendering.
 
 Status is computed per request from the queue envelope and the presence of a

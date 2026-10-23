@@ -14,7 +14,7 @@ the API can be versioned without touching route definitions.
 
 from fastapi import APIRouter
 
-from backend.routes import analyze, health, jobs, results, uploads
+from backend.routes import analyze, events, health, jobs, results, uploads
 
 system_router = APIRouter()
 system_router.include_router(health.router)
@@ -23,6 +23,7 @@ api_router = APIRouter()
 api_router.include_router(uploads.router)
 api_router.include_router(analyze.router)
 api_router.include_router(jobs.router)
+api_router.include_router(events.router)
 api_router.include_router(results.router)
 
 __all__ = ["api_router", "system_router"]

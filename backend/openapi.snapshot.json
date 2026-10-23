@@ -1,5 +1,5 @@
 {
-  "fingerprint": "f9610c4df51cd431eb69991fc4012fe7c03a81382e859ef76aa55d9ae3d0c92a",
+  "fingerprint": "97012d47a4987069d563fde380a2dcdc0f93813f6deb35bf2472674f2431f591",
   "signature": {
     "components": {
       "AbstainReason": {
@@ -428,6 +428,21 @@
           "url"
         ]
       },
+      "ProgressEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "at": "string(date-time)",
+          "event": "string",
+          "job_id": "string(uuid)",
+          "status": "$JobStatus"
+        },
+        "required": [
+          "at",
+          "event",
+          "job_id",
+          "status"
+        ]
+      },
       "ProvenanceFinding": {
         "additionalProperties": false,
         "properties": {
@@ -575,6 +590,19 @@
     "contract_version": "1.0.0",
     "openapi": "3.1.0",
     "paths": {
+      "GET /events/{job_id}": {
+        "operation_id": "stream_job_events_events__job_id__get",
+        "parameters": [
+          "path:job_id:required"
+        ],
+        "request_body": null,
+        "responses": {
+          "200": "text/event-stream:$ProgressEvent",
+          "400": "none",
+          "404": "none",
+          "500": "none"
+        }
+      },
       "GET /health": {
         "operation_id": "health_health_get",
         "parameters": [],

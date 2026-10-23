@@ -190,6 +190,7 @@ EXPECTED_ERRORS: dict[tuple[str, str], set[str]] = {
         "invalid_request", "upload_not_found", "upload_incomplete", "internal_error",
     },
     ("get", "/jobs/{job_id}"): {"invalid_request", "job_not_found", "internal_error"},
+    ("get", "/events/{job_id}"): {"invalid_request", "job_not_found", "internal_error"},
     ("get", "/results/{job_id}"): {
         "invalid_request", "job_not_found", "result_not_ready",
         "decode_failed", "internal_error",
@@ -348,6 +349,7 @@ def test_key_response_models_are_referenced():
         "CreateUploadResponse",
         "AnalyzeAcceptedResponse",
         "HealthResponse",
+        "ProgressEvent",
     ):
         assert name in SCHEMA["components"]["schemas"], f"{name} missing from components"
 
@@ -370,12 +372,21 @@ def test_every_success_response_resolves_to_a_real_schema():
                 content = body.get("content", {})
                 if not content:
                     continue  # 204 and friends legitimately carry no body
-                schema = content.get("application/json", {}).get("schema")
-                assert schema, f"{method.upper()} {path} {code}: JSON response with no schema"
-                for ref in oa._walk_refs(schema):
-                    assert oa._ref_name(ref) in components, (
-                        f"{method.upper()} {path} {code}: dangling ref {ref}"
-                    )
+                # Every documented media type, not only JSON: the event stream
+                # is text/event-stream and must still name a real schema.
+                for media, entry in content.items():
+                    schema = entry.get("schema")
+                    assert schema, f"{method.upper()} {path} {code}: {media} body with no schema"
+                    refs = oa._walk_refs(schema)
+                    if media != "application/json":
+                        assert refs, f"{method.upper()} {path} {code}: {media} names no model"
+                        assert "type" not in schema, (
+                            f"{method.upper()} {path} {code}: {media} has a type beside its $ref"
+                        )
+                    for ref in refs:
+                        assert oa._ref_name(ref) in components, (
+                            f"{method.upper()} {path} {code}: dangling ref {ref}"
+                        )
 
 
 def test_operation_ids_are_unique_across_the_document():
@@ -476,6 +487,20 @@ def test_signature_detects_an_enum_change():
     mutated["components"]["schemas"]["BranchId"]["enum"].append("C")
     changes = oa.diff_signatures(SIGNATURE, oa.structural_signature(mutated))
     assert any("BranchId" in c and "enum" in c for c in changes)
+
+
+def test_signature_records_the_event_stream_payload():
+    """The stream's 200 is text/event-stream, not JSON; the signature must still
+    see which model each frame carries, or replacing it would not be drift."""
+    signature = oa.structural_signature(SCHEMA)
+    op = signature["paths"]["GET /events/{job_id}"]
+    assert op["responses"]["200"] == "text/event-stream:$ProgressEvent"
+
+    mutated = json.loads(json.dumps(SCHEMA))
+    stream = mutated["paths"]["/events/{job_id}"]["get"]["responses"]["200"]
+    stream["content"]["text/event-stream"]["schema"] = {"$ref": "#/components/schemas/JobStatus"}
+    changes = oa.diff_signatures(signature, oa.structural_signature(mutated))
+    assert changes, "swapping the frame model was not detected"
 
 
 def test_signature_is_independent_of_the_api_prefix():

@@ -253,9 +253,11 @@ def _customise_openapi(app: FastAPI, settings: Settings) -> None:
         from backend.openapi import (
             promote_error_responses,
             strip_phantom_validation_errors,
+            strip_streaming_type_hints,
         )
 
         strip_phantom_validation_errors(schema)
+        strip_streaming_type_hints(schema)
         promote_error_responses(schema)
         app.openapi_schema = schema
         return schema

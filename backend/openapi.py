@@ -137,6 +137,32 @@ def strip_phantom_validation_errors(schema: dict[str, Any]) -> int:
     return removed
 
 
+def strip_streaming_type_hints(schema: dict[str, Any]) -> int:
+    """Drop the ``"type": "string"`` FastAPI places beside a ``$ref`` in a
+    non-JSON success response.
+
+    A route with a custom ``response_class`` (here ``text/event-stream``) and a
+    documented ``model`` gets ``{"type": "string", "$ref": ...}``: the class's
+    default schema merged with the model's. The two contradict each other — the
+    referenced model is an object — and a generator honouring ``type`` would
+    type every frame as a bare string. The ``$ref`` is the documented truth.
+    """
+    fixed = 0
+    for methods in schema.get("paths", {}).values():
+        for op in methods.values():
+            if not isinstance(op, dict):
+                continue
+            for code, response in op.get("responses", {}).items():
+                if not str(code).startswith("2") or not isinstance(response, dict):
+                    continue
+                for media, body in response.get("content", {}).items():
+                    node = body.get("schema", {})
+                    if media != "application/json" and "$ref" in node and "type" in node:
+                        del node["type"]
+                        fixed += 1
+    return fixed
+
+
 def promote_error_responses(schema: dict[str, Any]) -> dict[str, list[str]]:
     """Hoist error responses into ``components.responses`` and reference them.
 
@@ -256,7 +282,16 @@ def _operation_signature(op: dict[str, Any]) -> dict[str, Any]:
     for code, body in sorted(op.get("responses", {}).items()):
         content = body.get("content", {})
         payload = content.get("application/json", {}).get("schema")
-        responses[str(code)] = _type_of(payload) if payload else "none"
+        if payload:
+            responses[str(code)] = _type_of(payload)
+        elif content:
+            # A non-JSON body (the event stream) is recorded with its media
+            # type, so swapping the frame model is drift like any other.
+            media = sorted(content)[0]
+            other = content[media].get("schema")
+            responses[str(code)] = f"{media}:{_type_of(other)}" if other else "none"
+        else:
+            responses[str(code)] = "none"
 
     params = sorted(
         f"{p.get('in')}:{p.get('name')}:{'required' if p.get('required') else 'optional'}"
