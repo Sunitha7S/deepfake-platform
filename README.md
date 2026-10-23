@@ -5,7 +5,11 @@ Image and video deepfake detection. Web application, no terminal workflow.
 **Status:** the API, job queue, object storage, worker and inference pipeline are
 built and run end to end (see [Running the platform locally](#running-the-platform-locally)).
 Scoring is a **deterministic stub**, not a trained model — a verdict reflects the
-file's hash, not its authenticity. There is no frontend yet.
+file's hash, not its authenticity. There is no frontend yet. Only the local
+storage backend and the in-memory and SQLite queues work: `storage/s3.py` and
+`jobqueue/redis.py` are skeletons that raise `NotImplementedError`. The face
+detector is OpenCV's Haar cascade; an optional SCRFD detector is wired in but
+not the default (see `docs/SCRFD_R13_MEASUREMENT_EVIDENCE.md`).
 
 ## Why contracts first
 
@@ -23,10 +27,10 @@ verdict, both media kinds and every branch status — with no torch and no weigh
 |---|---|
 | Branch A — spatial | ConvNeXt V2-T, RGB + SRM/Bayar residual channels. Target: the aligned face crop. Today scores the crop (image) or the whole frame (video, no face stage). |
 | Branch B — semantic | DINOv2-B/14 frozen + probe. Target: the whole image. Today scores the same tensor as branch A — the face crop (image) or the whole frame (video). See R22. |
-| Branch P — provenance | C2PA + EXIF. Not learned. **One-sided.** |
-| Fusion | Logistic regression with interaction terms, temperature-calibrated |
+| Branch P — provenance | C2PA + EXIF. Not learned. **One-sided.** Target: no C2PA or EXIF reader exists yet; every bundle carries an empty provenance report. |
+| Fusion | Logistic regression with interaction terms, temperature-calibrated. Target: today a weighted pool of branch log-odds minus the provenance credit, at the identity temperature (`inference/postprocess.py`). |
 | Verdict | Three states: `authentic` / `manipulated` / `insufficient_evidence` |
-| Upload | Direct to object storage via presigned URL; bytes never touch the API |
+| Upload | Direct to object storage via presigned URL; bytes never touch the API. Target: the only working backend is local storage, whose presigned URL is the API's own `PUT /uploads/{upload_id}`. |
 
 There is no Branch C. The frequency branch was folded into Branch A as input
 channels at architecture review.
@@ -49,19 +53,15 @@ to `[0, 1]`. A negative contribution is unrepresentable.
 ## Layout
 
 ```
-contracts/
-├── enums.py        closed vocabularies — every cross-boundary string
-├── common.py       MediaInfo, QualityReport, FaceTrack, Artifact, Threshold
-├── branch.py       BranchResult + the one-sided guard for branch P
-├── provenance.py   C2PA / EXIF reports, authenticity credit
-├── video.py        frame curve, suspect segments, top frames
-├── evidence.py     EvidenceBundle — the keystone
-├── job.py          JobSpec, JobStatus, progress stages
-├── errors.py       error taxonomy, HTTP mapping, user-facing messages
-├── api.py          request/response schemas for every route
-└── fixtures.py     deterministic fixtures — the reason S1 can start now
-tests/
-└── test_contracts.py
+contracts/    EvidenceBundle and every cross-boundary schema, fixtures, version strings
+backend/      FastAPI app, routes, settings, rate limiter, worker entry point (worker_main)
+jobqueue/     queue protocol; memory and SQLite backends, Redis skeleton
+storage/      storage protocol and URL signing; local backend, S3 skeleton
+workers/      composition root: queued job → bytes from storage → EvidenceBundle
+inference/    decode, face detection, preprocessing, stub model backend, fusion
+evaluation/   offline metrics, calibration, benchmarking (never imported by serving)
+tests/        every suite, run together by tests/run_all.py
+docs/         per-batch design records; REPRODUCIBILITY_AUDIT.md is the finding index
 ```
 
 ## Setup
@@ -77,8 +77,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 Then, from the repo root:
 
 ```bash
-uv sync --extra dev
+uv sync --locked --extra dev --extra onnx
 ```
+
+`--extra onnx` installs `onnxruntime`, which the SCRFD detector suite needs
+even though the shipped default detector does not. This is the same command the
+CI workflow runs.
 
 This creates `.venv/` and installs the exact dependency versions pinned in
 `uv.lock` — including `opencv-python==4.8.1.78` and `numpy==1.26.4`, the
@@ -197,10 +201,18 @@ Constraints worth knowing:
 ## Running the test suites
 
 ```bash
-python tests/test_contracts.py
+uv run python tests/run_all.py
 ```
 
-Runs standalone (47 tests, no pytest needed) and under `pytest` unchanged.
+Runs every suite (63 suites, 1,474 tests at the time of writing). It takes
+15–20 minutes, most of it `test_evaluation_operating`'s bootstrap resampling;
+that suite is slow, not hung. Each suite also runs on its own, for example:
+
+```bash
+uv run python tests/test_contracts.py
+```
+
+It needs no pytest, and runs under `pytest` unchanged.
 
 Generate fixtures for the frontend:
 
@@ -216,7 +228,11 @@ python -m contracts.fixtures --stdout video_manipulated
 
 ## Requirements
 
-Python 3.11+ and pydantic 2.9+. Nothing else. No torch, no numpy, no I/O.
+Python 3.12 (pinned by `.python-version`). Runtime dependencies are declared in
+`pyproject.toml` and locked in `uv.lock`: pydantic, numpy, opencv-python,
+FastAPI, starlette and pydantic-settings. torch and onnxruntime are optional
+extras, imported only when a model backend or the SCRFD detector asks for them.
+`contracts/` alone still needs only pydantic.
 
 ## Contract stability
 
@@ -234,6 +250,8 @@ stops being an asset and becomes a constraint.
 
 ## Next
 
-S1 opens two parallel tracks — backend and frontend against fixtures on one side,
-preprocessing and dataset splitting on the other. Neither needs a dataset or a
-GPU.
+Not built yet: a trained model, a frontend, the Redis queue, the S3 backend,
+provenance extraction, and a video face stage. The CI workflow
+(`.github/workflows/tests.yml`) has never run, because the repository has no
+remote. Open findings are tracked in `REPRODUCIBILITY_AUDIT.md`; the remaining
+programs are described in `docs/NEXT_ENGINEERING_PROGRAM.md`.

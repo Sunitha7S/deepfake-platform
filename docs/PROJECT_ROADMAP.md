@@ -4,6 +4,16 @@
 re-read in full; every "open" claim below is the live table state, not a
 recollection. **Type:** planning only — no code in this task, per instruction.
 
+> **State since this was written (2026-10-23, commit `2cb9a3e`):** all the
+> work this document calls uncommitted is now committed (18 commits on
+> `master`; the repository still has no remote, so the CI workflow has still
+> never run). SCRFD Phases 1-3 landed and R13 was measured against SCRFD:
+> **no-go**, so the Haar cascade stays the default detector
+> (`docs/SCRFD_R13_MEASUREMENT_EVIDENCE.md`). The serving path gained a SQLite
+> job queue, per-queue retry policies, the `GET /events/{job_id}` stream and
+> per-client rate limiting (single host only). Redis and S3 are still
+> skeletons. The rest of this document is unchanged, as a record of its date.
+
 ---
 
 ## 0. The one fact that has to be stated before any numbers
