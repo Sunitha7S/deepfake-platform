@@ -216,17 +216,92 @@ def test_only_wanted_frames_pay_for_colour_conversion():
     )
 
 
+def test_each_frame_is_decoded_once_and_the_pass_stops_at_the_last_wanted():
+    """The F13 property in decode operations, independent of timing.
+
+    One ``grab`` per frame from the first to the last wanted, then stop: no
+    seek, no second pass, no decoding of the tail nobody asked for.
+    """
+    with pre.temp_media_file(CLIP, suffix=".mp4") as path:
+        meta = pre.probe_video(path, caps=pre.DEFAULT_CAPS)
+    wanted = pre.sample_frame_indices(meta.frame_count, 48)
+    assert max(wanted) + 1 < meta.frame_count, "the clip must have an unwanted tail"
+    with counting_decodes() as counts:
+        pre.extract_frames(CLIP, n_frames=48, target_size=TARGET)
+    assert counts.get("seek", 0) == 0
+    assert counts["grab"] == max(wanted) + 1, (
+        f"{counts['grab']} grabs for frames 0..{max(wanted)}: a frame was decoded "
+        "twice, or the pass ran past the last wanted frame"
+    )
+
+
+SPEEDUP_FLOOR = 3.0
+"""Required CPU-time ratio, seek-per-frame over one pass, for the same output.
+
+Measured on this fixture (median of 5 interleaved pairs, 30 trials per load
+level): 5.9x-10.8x at 35-47% background CPU load, 6.2x-13.0x at 87%. 3x keeps
+about a 2x margin below the lowest observation and still fails on the two
+regressions that matter: per-frame seeking reintroduced (ratio ~1x; see
+``test_the_speed_check_rejects_a_seeking_implementation``) or a one-pass
+implementation that became three times as expensive."""
+
+
+def _cpu_cost_ratio(seeking, one_pass, *, pairs: int = 5) -> tuple[float, float, float]:
+    """(ratio, seeking CPU s, one-pass CPU s), medians over interleaved pairs.
+
+    CPU time, not wall-clock: the seek path's extra decode runs on OpenCV's
+    worker threads, which an idle machine absorbs and a busy one does not, so
+    its wall-clock lead swung from 0.89x to 6.3x with background load (2 of 30
+    single-pair comparisons failed at 87% load). CPU time counts the work
+    itself, every thread included, and moved far less. Alternating the order
+    within each pair keeps warm-cache advantage from favouring either side.
+    """
+
+    def cpu(fn) -> float:
+        started = time.process_time()
+        fn()
+        return time.process_time() - started
+
+    seek_s: list[float] = []
+    pass_s: list[float] = []
+    for i in range(pairs):
+        if i % 2:
+            pass_s.append(cpu(one_pass))
+            seek_s.append(cpu(seeking))
+        else:
+            seek_s.append(cpu(seeking))
+            pass_s.append(cpu(one_pass))
+    seek, one = sorted(seek_s)[pairs // 2], sorted(pass_s)[pairs // 2]
+    # process_time ticks in 15.6 ms steps on Windows; never divide by zero.
+    return seek / max(one, 1e-3), seek, one
+
+
+def _legacy_same_output():
+    """The seek path doing everything the one-pass path does: decode, resize."""
+    return legacy_prepare(legacy_extract(CLIP, n_frames=48)[1])
+
+
+def _one_pass():
+    return pre.extract_frames(CLIP, n_frames=48, target_size=TARGET)
+
+
 def test_sequential_extraction_is_faster_than_seeking():
-    started = time.perf_counter()
-    legacy_extract(CLIP, n_frames=48)
-    legacy_s = time.perf_counter() - started
+    """Not a wall-clock race any more: same output on both sides, CPU time,
+    medians, and a margin. The earlier form timed one pair of wall-clock runs
+    where only the one-pass side resized, and failed under background load."""
+    ratio, seek_s, one_s = _cpu_cost_ratio(_legacy_same_output, _one_pass)
+    assert ratio >= SPEEDUP_FLOOR, (
+        f"one pass cost {one_s:.3f}s CPU against {seek_s:.3f}s of seeking: "
+        f"{ratio:.2f}x, below the {SPEEDUP_FLOOR}x floor"
+    )
 
-    started = time.perf_counter()
-    pre.extract_frames(CLIP, n_frames=48, target_size=TARGET)
-    new_s = time.perf_counter() - started
 
-    assert new_s < legacy_s, (
-        f"one pass took {new_s:.3f}s against {legacy_s:.3f}s of seeking"
+def test_the_speed_check_rejects_a_seeking_implementation():
+    """The check above must be able to fail. Handed a seek-per-frame
+    implementation in place of the one-pass path, it must measure ~1x."""
+    ratio, _, _ = _cpu_cost_ratio(_legacy_same_output, _legacy_same_output, pairs=3)
+    assert ratio < SPEEDUP_FLOOR, (
+        f"the speed check passed a seeking implementation at {ratio:.2f}x"
     )
 
 
