@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-17. **Type:** design only — no code. **Method:** complete
 source re-derivation. Every claim below was re-checked against the current
-working tree (`git status` read first; `HEAD` = `6eb1457` "R31: bind
+working tree (`git status` read first; `HEAD` = `8676fdd` "R31: bind
 calibration witness to model configuration", plus uncommitted OR1-b changes
 — see §0) rather than assumed from `docs/B24_DESIGN.md`,
 `docs/B24_ADVERSARIAL_REVIEW.md`, or `docs/B24_R2_DESIGN.md`. Those three
@@ -22,7 +22,7 @@ the "decode-environment completeness pass 2" batch named in
 
 Read directly, not recalled:
 
-- `git log --oneline`: one commit, `6eb1457` — R31. `git remote -v`: none.
+- `git log --oneline`: one commit, `8676fdd` — R31. `git remote -v`: none.
 - **Uncommitted in the working tree:** OR1-b (Batch 25) — modified
   `backend/config.py`, `workers/runner.py`, `REPRODUCIBILITY_AUDIT.md`,
   `docs/VIDEO_SELECTION_IDENTITY.md`, `tests/run_all.py`,
@@ -554,7 +554,7 @@ fixtures) still verifies; a new witness records `<new>`.
     directs otherwise — they are independently reviewable, independently
     revertible changes (§6.5's rollback story is written per-batch); OR1-b
     should land first (it is already implemented and green) so this batch's
-    "one commit, `6eb1457`" baseline in §0 stays accurate for whoever reads
+    "one commit, `8676fdd`" baseline in §0 stays accurate for whoever reads
     this document next.
 
 ---

@@ -14,7 +14,7 @@ and `docs/CROP_GEOMETRY.md`.
 
 **Baseline re-confirmed, live, before any decision below:** `git status`
 — no drift since `R16_R26_DESIGN.md` was written (same uncommitted
-OR1-b/R30 tree, `HEAD = 6eb1457`). `CONTRACT_VERSION = "1.0.0"`
+OR1-b/R30 tree, `HEAD = 8676fdd`). `CONTRACT_VERSION = "1.0.0"`
 (`contracts/enums.py:16`), `RUN_SCHEMA_VERSION = "1.2.0"`
 (`evaluation/benchmark.py:108`), `CALIBRATION_WITNESS_VERSION = "1.3.0"`
 (`evaluation/calibration_protocol.py:74`), `LOCK_VERSION = "1.1.0"`

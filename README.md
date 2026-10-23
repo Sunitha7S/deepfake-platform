@@ -206,7 +206,7 @@ Constraints worth knowing:
 uv run python tests/run_all.py
 ```
 
-Runs every suite (63 suites, 1,474 tests at the time of writing). It takes
+Runs every suite (64 suites, 1,486 tests at the time of writing). It takes
 15–20 minutes, most of it `test_evaluation_operating`'s bootstrap resampling;
 that suite is slow, not hung. Each suite also runs on its own, for example:
 

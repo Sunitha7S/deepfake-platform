@@ -12,7 +12,7 @@ is only the work `PROJECT_STATUS_FINAL.md` §3 and §5 already identified as
 blocked on something this project does not have: a modern face detector, a
 trained model, a video-native face stage, or a real deployment.
 
-> **State since this was written (2026-10-23, commit `2cb9a3e`):** all the
+> **State since this was written (2026-10-23, commit `e18eb1a`):** all the
 > work this document calls uncommitted is now committed (18 commits on
 > `master`; the repository still has no remote, so the CI workflow has still
 > never run). SCRFD Phases 1-3 landed and R13 was measured against SCRFD:
@@ -31,7 +31,7 @@ Not a program — a zero-engineering precondition, carried forward from
 a new multi-week program on top of an uncommitted, doc-stale working tree
 would make that program harder to review later:
 
-1. Commit the working tree (everything since `6eb1457`).
+1. Commit the working tree (everything since `8676fdd`).
 2. Sync `REPRODUCIBILITY_AUDIT.md`'s narrative trailer past "Still open
    after Batch 27."
 3. Correct the three stale "stop, awaiting approval" gate lines

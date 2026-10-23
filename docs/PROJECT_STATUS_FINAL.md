@@ -17,7 +17,7 @@ actually contains.
 **This document does not modify, and was not permitted to modify, any other
 file. No production code was written to produce it.**
 
-> **State since this was written (2026-10-23, commit `2cb9a3e`):** all the
+> **State since this was written (2026-10-23, commit `e18eb1a`):** all the
 > work this document calls uncommitted is now committed (18 commits on
 > `master`; the repository still has no remote, so the CI workflow has still
 > never run). SCRFD Phases 1-3 landed and R13 was measured against SCRFD:
@@ -32,7 +32,7 @@ file. No production code was written to produce it.**
 ## 0. Ground truth established this session
 
 - **Repo:** `C:\Users\sunit\Downloads\Deepfake-Detection\deepfake-platform`.
-  Last commit: `6eb1457` ("R31: bind calibration witness to model
+  Last commit: `8676fdd` ("R31: bind calibration witness to model
   configuration"). Everything described as "Batch 25" (OR1-b), "Batch 26"
   (R30-bundle), "Batch 27" (R16+R26 cheap paths), and the R23/R28
   reachability tests is **uncommitted working-tree state** — real, present,
@@ -98,8 +98,8 @@ partially-closed remainder is in §2.
 | **OR1-b** | `backend/worker_main.py` composition root wires the config-default path into the full alignment check | **Verified live**: `backend/worker_main.py` exists (4,977 bytes, new file), `workers/runner.py` and `backend/config.py` show matching diffs |
 | **R30** | Image decode libraries (libjpeg-turbo/libpng/libwebp) joined `decode_identity`; `.d.` moved `a97ccb68`→`c9d4025c` | **Verified live**: `git diff --stat` shows `inference/decode_env.py` (+102/-…) and `backend/config.py` changed; new `tests/test_image_decode_identity.py` present |
 | D9 | `cv2.__version__`'s dropped 4th digit — folded into R30 | Same diff as R30 |
-| **N5, N9** | Dependency lockfile (`uv.lock`, committed at `6eb1457`); undeclared `httpx2` fixed | Confirmed at `HEAD` — already committed, not just working-tree |
-| **R31** | `CalibrationWitness` digest now includes `pre_calibration_identity` (weights+gate+selection); `CALIBRATION_WITNESS_VERSION` 1.2.0→1.3.0 | Confirmed at `HEAD` (`6eb1457` is this commit) |
+| **N5, N9** | Dependency lockfile (`uv.lock`, committed at `8676fdd`); undeclared `httpx2` fixed | Confirmed at `HEAD` — already committed, not just working-tree |
+| **R31** | `CalibrationWitness` digest now includes `pre_calibration_identity` (weights+gate+selection); `CALIBRATION_WITNESS_VERSION` 1.2.0→1.3.0 | Confirmed at `HEAD` (`8676fdd` is this commit) |
 | R33, R35, R36 | Naming-honesty aliases, `build_video_analysis` kwarg-default tripwire, `VideoAnalysis` wire-default tripwire | Summary table, unchanged since B23/cleanup batch |
 | N7 | "`np.quantile` unrecorded" — traced to source and found **not applicable** to `CalibrationWitness`'s actual call graph | Summary table; this is a closed non-issue, not deferred work |
 | **R28 — reachability half only** | A regression suite proving R28's mixed-case interpolation defect is reachable through the real, shipped `crop_face()` (not only a scripted array) | **Verified live**, contradicting `R23_R28_DESIGN.md`'s own "no implementation" gate: `tests/test_crop_identity.py` diff (+88 lines) contains all three tests the design doc specified — `test_a_real_crop_produces_the_mixed_case_resize_predicate_objects_to`, `test_the_mixed_case_crop_gets_area_interpolation_on_its_upsampled_axis`, `test_r28_is_documented_as_live_not_hypothetical` — read in full this session. See §7 |
@@ -175,7 +175,7 @@ reachability work landed) — re-derived, not carried over:
   source in §1: OR1-b, R30-bundle, R16+R26 cheap paths, R28 reachability.
 - What remains before this line of work is fully closed **procedurally** is
   not engineering — it is:
-  1. **Committing the uncommitted working tree** (everything since `6eb1457`)
+  1. **Committing the uncommitted working tree** (everything since `8676fdd`)
      as one or more reviewed commits.
   2. **A doc-sync pass** on `REPRODUCIBILITY_AUDIT.md`: the per-batch
      narrative trailer stops at "Still open after Batch 27" (line 3571) —

@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-18. **Type:** design only — no code. **Method:** complete
 source re-derivation. Every claim below was independently re-checked against
-the current working tree (`git status` read first; `HEAD = 6eb1457`, same
+the current working tree (`git status` read first; `HEAD = 8676fdd`, same
 uncommitted OR1-b/R30/Batch-27 tree, zero drift since Batch 27) rather than
 assumed from `docs/CROP_GEOMETRY.md`, `docs/CROP_IDENTITY.md`,
 `REPRODUCIBILITY_AUDIT.md`, or `docs/PROJECT_ROADMAP.md`. Those documents
