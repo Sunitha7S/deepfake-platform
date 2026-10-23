@@ -50,7 +50,7 @@ import json
 import sqlite3
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, TypeVar
@@ -167,9 +167,10 @@ class SQLiteQueue(BaseQueueBackend):
         path: str | Path,
         *,
         policy: RetryPolicy | None = None,
+        queue_policies: Mapping[str, RetryPolicy] | None = None,
         busy_timeout_s: float = 30.0,
     ) -> None:
-        super().__init__(policy)
+        super().__init__(policy, queue_policies=queue_policies)
         # Absolute now, against the working directory this process started in.
         # A relative path left relative is resolved again by every process that
         # opens it: an API and a worker launched from different directories
@@ -302,10 +303,11 @@ class SQLiteQueue(BaseQueueBackend):
         for row in expired:
             attempts = row["attempts"] + 1
             error = f"lease expired; worker {row['worker_id']} did not report back"
-            if self.policy.should_retry(
+            policy = self.policy_for_queue(row["queue"])
+            if policy.should_retry(
                 attempts=attempts, retryable=True, max_attempts=row["max_attempts"]
             ):
-                retry_at = self.policy.next_attempt_at(now, attempts=attempts)
+                retry_at = policy.next_attempt_at(now, attempts=attempts)
                 conn.execute(
                     f"UPDATE jobs SET state = ?, attempts = ?, available_at = ?, "
                     f"updated_at = ?, last_error = ?, {_CLEAR_LEASE} WHERE job_id = ?",
@@ -345,7 +347,7 @@ class SQLiteQueue(BaseQueueBackend):
         # at the call site, not as a corrupt row a worker later chokes on.
         encoded = json.dumps(payload, allow_nan=False)
         new_id = job_id or self.new_job_id()
-        attempts_budget = max_attempts or self.policy.max_attempts
+        attempts_budget = max_attempts or self.policy_for_queue(queue).max_attempts
 
         def op(conn: sqlite3.Connection) -> JobEnvelope:
             if idempotency_key is not None:
@@ -456,10 +458,11 @@ class SQLiteQueue(BaseQueueBackend):
             now = self.now()
             now_us = _to_us(now)
             attempts = row["attempts"] + 1
-            if self.policy.should_retry(
+            policy = self.policy_for_queue(row["queue"])
+            if policy.should_retry(
                 attempts=attempts, retryable=retryable, max_attempts=row["max_attempts"]
             ):
-                retry_at = self.policy.next_attempt_at(now, attempts=attempts)
+                retry_at = policy.next_attempt_at(now, attempts=attempts)
                 conn.execute(
                     f"UPDATE jobs SET state = ?, attempts = ?, available_at = ?, "
                     f"updated_at = ?, last_error = ?, {_CLEAR_LEASE} WHERE job_id = ?",

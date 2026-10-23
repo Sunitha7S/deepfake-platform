@@ -67,6 +67,7 @@ import test_openapi  # noqa: E402
 import test_postprocess  # noqa: E402
 import test_preprocess  # noqa: E402
 import test_queue  # noqa: E402
+import test_queue_retry_policy  # noqa: E402
 import test_result_sink_race  # noqa: E402
 import test_schema  # noqa: E402
 import test_split_lock  # noqa: E402
@@ -138,6 +139,7 @@ SUITES = [
     ("S8-B30 detector pinning for cutover (SCRFD Phase 4 P5)", test_detector_pinning),
     ("S8-B30 R13 evaluation corpus + manifest (SCRFD Phase 4 P3)", test_scrfd_corpus),
     ("S8-B31 shared SQLite job queue (API + worker processes)", test_sqlite_queue),
+    ("S8-B32 per-queue retry policies applied", test_queue_retry_policy),
 ]
 
 

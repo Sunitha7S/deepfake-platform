@@ -20,6 +20,7 @@ queue would look busy while completing nothing. Long consumers heartbeat.
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, runtime_checkable
 
@@ -159,8 +160,25 @@ class BaseQueueBackend:
 
     name: str = "base"
 
-    def __init__(self, policy: RetryPolicy | None = None) -> None:
+    def __init__(
+        self,
+        policy: RetryPolicy | None = None,
+        *,
+        queue_policies: Mapping[str, RetryPolicy] | None = None,
+    ) -> None:
         self.policy = policy or RetryPolicy()
+        self.queue_policies: dict[str, RetryPolicy] = dict(queue_policies or {})
+
+    def policy_for_queue(self, queue: str) -> RetryPolicy:
+        """The retry policy that governs jobs on ``queue``.
+
+        A per-queue entry wins; ``policy`` is the fallback for any queue without
+        one. Every retry decision -- the default attempt budget at enqueue, the
+        backoff after a nack, the backoff after a lapsed lease -- goes through
+        here, so a backend cannot apply the per-queue budget in one place and
+        the fallback in another.
+        """
+        return self.queue_policies.get(queue, self.policy)
 
     @staticmethod
     def now() -> datetime:

@@ -152,7 +152,10 @@ Constraints worth knowing:
 - Job claims are atomic across processes (`BEGIN IMMEDIATE` transactions), a
   worker that dies mid-job has its lease expire and the job retried with backoff,
   and a job is dead-lettered after its attempt budget or on a permanent error
-  such as an undecodable file. See `jobqueue/sqlite.py`.
+  such as an undecodable file. Budgets are per queue (`QUEUE_DEFAULTS` in
+  `jobqueue/registry.py`): image jobs get 3 attempts with jittered backoff from
+  2 s up to 30 s; video jobs, which cost far more to rerun, get 2 attempts with
+  backoff from 10 s up to 120 s. See `jobqueue/sqlite.py`.
 
 ## Running the test suites
 

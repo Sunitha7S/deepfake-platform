@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 import time
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -47,8 +48,13 @@ class InMemoryQueue(BaseQueueBackend):
 
     name = "memory"
 
-    def __init__(self, policy: RetryPolicy | None = None) -> None:
-        super().__init__(policy)
+    def __init__(
+        self,
+        policy: RetryPolicy | None = None,
+        *,
+        queue_policies: Mapping[str, RetryPolicy] | None = None,
+    ) -> None:
+        super().__init__(policy, queue_policies=queue_policies)
         self._jobs: dict[str, JobEnvelope] = {}
         self._leases: dict[str, Lease] = {}
         self._by_idempotency: dict[tuple[str, str], str] = {}
@@ -92,7 +98,7 @@ class InMemoryQueue(BaseQueueBackend):
                 priority=priority,
                 sequence=next(self._sequence),
                 attempts=0,
-                max_attempts=max_attempts or self.policy.max_attempts,
+                max_attempts=max_attempts or self.policy_for_queue(queue).max_attempts,
                 enqueued_at=now,
                 available_at=now + timedelta(seconds=delay_s),
                 updated_at=now,
@@ -125,7 +131,8 @@ class InMemoryQueue(BaseQueueBackend):
                 continue
             attempts = job.attempts + 1
             error = f"lease expired; worker {lease.worker_id} did not report back"
-            if self.policy.should_retry(
+            policy = self.policy_for_queue(job.queue)
+            if policy.should_retry(
                 attempts=attempts, retryable=True, max_attempts=job.max_attempts
             ):
                 # DELAYED, not READY. Backoff applies to a lapsed lease exactly
@@ -141,7 +148,7 @@ class InMemoryQueue(BaseQueueBackend):
                     update={
                         "state": JobState.DELAYED,
                         "attempts": attempts,
-                        "available_at": self.policy.next_attempt_at(now, attempts=attempts),
+                        "available_at": policy.next_attempt_at(now, attempts=attempts),
                         "updated_at": now,
                         "last_error": error,
                     }
@@ -247,10 +254,11 @@ class InMemoryQueue(BaseQueueBackend):
             attempts = job.attempts + 1
             del self._leases[job_id]
 
-            if self.policy.should_retry(
+            policy = self.policy_for_queue(job.queue)
+            if policy.should_retry(
                 attempts=attempts, retryable=retryable, max_attempts=job.max_attempts
             ):
-                retry_at = self.policy.next_attempt_at(now, attempts=attempts)
+                retry_at = policy.next_attempt_at(now, attempts=attempts)
                 updated = job.model_copy(
                     update={
                         "state": JobState.DELAYED,

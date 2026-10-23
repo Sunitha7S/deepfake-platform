@@ -58,7 +58,17 @@ class QueueConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     kind: BackendKind = "memory"
-    policy: RetryPolicy = Field(default_factory=RetryPolicy)
+    policy: RetryPolicy = Field(
+        default_factory=RetryPolicy,
+        description="Fallback for any queue without an entry in queue_policies.",
+    )
+    queue_policies: dict[str, RetryPolicy] = Field(
+        default_factory=lambda: dict(QUEUE_DEFAULTS),
+        description=(
+            "Per-queue retry policy, QUEUE_DEFAULTS unless overridden. Before this "
+            "field existed every queue silently ran on the fallback policy."
+        ),
+    )
 
     # redis
     url: str | None = Field(default=None, description="Required when kind is 'redis'.")
@@ -85,14 +95,17 @@ class QueueConfig(BaseModel):
 def build_queue(config: QueueConfig) -> QueueBackend:
     """Return a backend. Typed as the protocol, never as a concrete class."""
     if config.kind == "memory":
-        return InMemoryQueue(policy=config.policy)
+        return InMemoryQueue(policy=config.policy, queue_policies=config.queue_policies)
     if config.kind == "sqlite":
         assert config.path is not None  # enforced by QueueConfig
-        return SQLiteQueue(config.path, policy=config.policy)
+        return SQLiteQueue(
+            config.path, policy=config.policy, queue_policies=config.queue_policies
+        )
     return RedisQueue(
         url=config.url or "",
         namespace=config.namespace,
         policy=config.policy,
+        queue_policies=config.queue_policies,
     )
 
 

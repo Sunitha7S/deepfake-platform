@@ -37,6 +37,7 @@ simply vanishes tells nobody the job needs requeueing.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from jobqueue.base import DEFAULT_LEASE_SECONDS, BaseQueueBackend
@@ -64,9 +65,10 @@ class RedisQueue(BaseQueueBackend):
         *,
         namespace: str = "dfp",
         policy: RetryPolicy | None = None,
+        queue_policies: Mapping[str, RetryPolicy] | None = None,
         client: Any = None,
     ) -> None:
-        super().__init__(policy)
+        super().__init__(policy, queue_policies=queue_policies)
         self.url = url
         self.namespace = namespace
         self._client = client
