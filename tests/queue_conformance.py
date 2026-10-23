@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jobqueue.base import QueueBackend
@@ -249,12 +250,29 @@ async def check_ack_of_unleased_job_is_rejected(make: BackendFactory) -> None:
 
 
 async def check_retryable_nack_schedules_a_retry(make: BackendFactory) -> None:
+    """The backoff is pinned, jitter-free, for this check's queue.
+
+    Under the default full jitter the first delay is uniform in [0, 2 s]; a
+    draw of a few milliseconds legitimately makes the job leasable again before
+    the second ``lease`` below, so the check failed ~2% of runs on SQLite
+    (measured: 5/300 and 6/300). With a fixed 30 s backoff the job cannot come
+    back within the check, and the schedule itself becomes assertable.
+    """
+    backoff = timedelta(seconds=30)
     q = make()
+    q.queue_policies[Q] = RetryPolicy(
+        base_delay_s=backoff.total_seconds(), max_delay_s=backoff.total_seconds(), jitter=False
+    )
     await q.enqueue(Q, {})
     [leased] = await q.lease(Q, worker_id="w1")
+    before = datetime.now(UTC)
     result = await q.nack(leased.job_id, leased.lease.lease_id, error="blip", retryable=True)
+    after = datetime.now(UTC)
     assert result.outcome is NackOutcome.RETRY_SCHEDULED
     assert result.retry_at is not None
+    assert before + backoff <= result.retry_at <= after + backoff, (
+        f"retry scheduled for {result.retry_at}, not {backoff} after the nack"
+    )
     assert result.envelope.attempts == 1
     assert result.envelope.last_error == "blip"
     assert await q.lease(Q, worker_id="w2") == [], "a backed-off job was immediately releasable"
