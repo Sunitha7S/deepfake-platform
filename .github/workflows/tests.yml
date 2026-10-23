@@ -1,9 +1,9 @@
 # B24 (N5), docs/B24_N5_DESIGN.md §3.2.
 #
-# UNEXERCISED: the repository has never been pushed, so this workflow has never
-# run in GitHub Actions. It is authored conservatively (pinned action versions,
-# the same 3.12 interpreter pinned by .python-version), but verify it on the
-# first push rather than trusting it as tested.
+# First ran on GitHub Actions on 2026-10-23 (run 39995049300, 64 suites, 1486
+# tests). Actions are pinned to full commit SHAs, with the release tag in a
+# comment, because a tag can be moved; the interpreter is the 3.12 pinned by
+# .python-version.
 name: tests
 
 on:
@@ -26,9 +26,10 @@ jobs:
     # same way.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      # Both run on Node 24; v4 and v3 ran on the deprecated Node 20.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.11.28"
 

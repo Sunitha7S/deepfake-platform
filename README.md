@@ -1,5 +1,7 @@
 # Deepfake Platform
 
+[![tests](https://github.com/Sunitha7S/deepfake-platform/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/Sunitha7S/deepfake-platform/actions/workflows/tests.yml)
+
 Image and video deepfake detection. Web application, no terminal workflow.
 
 **Status:** the API, job queue, object storage, worker and inference pipeline are
@@ -254,8 +256,9 @@ stops being an asset and becomes a constraint.
 
 Not built yet: a trained model, a frontend, the Redis queue, the S3 backend,
 provenance extraction, and a video face stage. The CI workflow
-(`.github/workflows/tests.yml`) has never run, because the repository has no
-remote. Open findings are tracked in `REPRODUCIBILITY_AUDIT.md`; the remaining
+(`.github/workflows/tests.yml`) runs the full locked suite on every push and
+pull request, on `windows-latest` because the shipped model version is specific
+to the Windows decode environment (see the comment in the workflow). Open findings are tracked in `REPRODUCIBILITY_AUDIT.md`; the remaining
 programs are described in `docs/NEXT_ENGINEERING_PROGRAM.md`.
 
 ## Licence
