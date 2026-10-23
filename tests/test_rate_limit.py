@@ -98,6 +98,7 @@ def _assert_limited(r) -> None:
     assert r.status_code == 429, r.text
     err = r.json()["error"]
     assert err["code"] == ErrorCode.RATE_LIMITED.value
+    assert err["retryable"] is True, "waiting out Retry-After makes the same request succeed"
     assert 1 <= err["retry_after_s"] <= WINDOW_S
     assert r.headers["Retry-After"] == str(err["retry_after_s"])
 
@@ -404,6 +405,7 @@ def test_429_and_retry_after_are_documented_on_exactly_the_limited_routes():
     assert header["example"] == 60
     example = component["content"]["application/json"]["examples"]["rate_limited"]["value"]
     assert example["error"]["retry_after_s"] == 60
+    assert example["error"]["retryable"] is True
     limited = sorted(
         f"{method.upper()} {path}"
         for path, methods in schema["paths"].items()

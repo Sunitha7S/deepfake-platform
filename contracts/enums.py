@@ -185,12 +185,19 @@ TRANSIENT_ERRORS: frozenset[ErrorCode] = frozenset(
         ErrorCode.DECODE_TIMEOUT,
         ErrorCode.MODEL_UNAVAILABLE,
         ErrorCode.RESOURCE_EXHAUSTED,
+        ErrorCode.RATE_LIMITED,
         ErrorCode.INTERNAL_ERROR,
     }
 )
-"""Worth retrying with backoff, up to the configured attempt limit."""
+"""The same request can succeed later: retry with backoff, honouring
+``retry_after_s`` where it is set (``rate_limited`` always sets it)."""
 
 
 def is_retryable(code: ErrorCode) -> bool:
-    """Single source of truth for retry policy. ``workers/retry.py`` calls this."""
+    """Whether a client retrying the same request could succeed.
+
+    The single source of ``ApiError.retryable`` on the wire (via
+    ``ApiError.of``). Worker re-delivery does not read it: the runner decides
+    from the handler's exception (``workers.types.classify``).
+    """
     return code in TRANSIENT_ERRORS

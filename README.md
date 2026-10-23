@@ -180,8 +180,9 @@ Constraints worth knowing:
   one budget of `DFP_RATE_LIMIT_PER_MINUTE` (60) requests per client per fixed
   one-minute window. A full submission therefore costs two. Polling, the event
   stream, results, `/health` and the byte `PUT` are not limited. Over the limit
-  the answer is `429 rate_limited` with `Retry-After` set to the seconds left
-  in the window (1–60, also in `error.retry_after_s`). Across a window boundary
+  the answer is `429 rate_limited` (`error.retryable: true`) with
+  `Retry-After` set to the seconds left in the window (1–60, also in
+  `error.retry_after_s`). Across a window boundary
   a client can send up to twice the limit in quick succession.
 - **A client is its direct peer address.** `X-Forwarded-For`, `Forwarded` and
   `X-Real-IP` are ignored, because no trusted proxy is configured and a client

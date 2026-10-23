@@ -376,6 +376,8 @@ def test_error_retryability_matches_taxonomy():
     assert not is_retryable(ErrorCode.DECODE_FAILED)
     assert ApiError.of(ErrorCode.DECODE_FAILED).retryable is False
     assert ApiError.of(ErrorCode.MODEL_UNAVAILABLE).retryable is True
+    # A 429 carries retry_after_s precisely because waiting makes it succeed.
+    assert ApiError.of(ErrorCode.RATE_LIMITED, retry_after_s=60).retryable is True
 
 
 def test_error_codes_are_partitioned():
