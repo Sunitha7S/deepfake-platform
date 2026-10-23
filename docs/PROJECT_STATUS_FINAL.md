@@ -31,7 +31,8 @@ file. No production code was written to produce it.**
 
 ## 0. Ground truth established this session
 
-- **Repo:** `C:\Users\sunit\Downloads\Deepfake-Detection\deepfake-platform`.
+- **Repo:** this repository (`deepfake-platform`); paths below are relative
+  to its root.
   Last commit: `8676fdd` ("R31: bind calibration witness to model
   configuration"). Everything described as "Batch 25" (OR1-b), "Batch 26"
   (R30-bundle), "Batch 27" (R16+R26 cheap paths), and the R23/R28
