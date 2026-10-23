@@ -257,3 +257,21 @@ provenance extraction, and a video face stage. The CI workflow
 (`.github/workflows/tests.yml`) has never run, because the repository has no
 remote. Open findings are tracked in `REPRODUCIBILITY_AUDIT.md`; the remaining
 programs are described in `docs/NEXT_ENGINEERING_PROGRAM.md`.
+
+## Licence
+
+The code in this repository is released under the [MIT License](LICENSE).
+
+The MIT License covers this repository's own code and documentation only. Two
+third-party assets the SCRFD study used are **not included and not covered**:
+
+- **SCRFD face-detector weights** (`det_10g.onnx` from InsightFace's
+  `cheetah_l` model-zoo package), licensed for non-commercial use only and
+  not redistributable. Fetch them yourself under that licence and point
+  `DFP_SCRFD_MODEL_PATH` at the file; see `docs/SCRFD_ASSET.md`. The shipped
+  default detector is OpenCV's Haar cascade, which needs no download.
+- **WIDER FACE images**, licensed CC BY-NC-ND 4.0, used only as the local R13
+  measurement corpus (`tests/scrfd_corpus.py`).
+
+Only aggregate measurements derived from them appear in `docs/`. Dependencies
+installed from PyPI keep their own licences.
