@@ -63,7 +63,7 @@ workers/      composition root: queued job → bytes from storage → EvidenceBu
 inference/    decode, face detection, preprocessing, stub model backend, fusion
 evaluation/   offline metrics, calibration, benchmarking (never imported by serving)
 tests/        every suite, run together by tests/run_all.py
-docs/         per-batch design records; REPRODUCIBILITY_AUDIT.md is the finding index
+docs/         per-batch design records (the finding index, REPRODUCIBILITY_AUDIT.md, is at the root)
 ```
 
 ## Setup
