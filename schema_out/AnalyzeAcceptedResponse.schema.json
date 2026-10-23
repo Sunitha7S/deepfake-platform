@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "JobState": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "JobState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "202. The job is queued; nothing has been analysed yet.",
+  "properties": {
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/JobState",
+      "default": "queued"
+    },
+    "status_url": {
+      "title": "Status Url",
+      "type": "string"
+    },
+    "events_url": {
+      "title": "Events Url",
+      "type": "string"
+    },
+    "result_url": {
+      "title": "Result Url",
+      "type": "string"
+    },
+    "queue_position": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Queue Position"
+    },
+    "estimated_wait_s": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Estimated Wait S"
+    }
+  },
+  "required": [
+    "job_id",
+    "status_url",
+    "events_url",
+    "result_url"
+  ],
+  "title": "AnalyzeAcceptedResponse",
+  "type": "object",
+  "$id": "https://deepfake-platform/schema/1.0.0/AnalyzeAcceptedResponse.json",
+  "examples": [
+    {
+      "job_id": "00000000-0000-0000-0000-000000000006",
+      "state": "queued",
+      "status_url": "/api/v1/jobs/00000000-0000-0000-0000-000000000006",
+      "events_url": "/api/v1/events/00000000-0000-0000-0000-000000000006",
+      "result_url": "/api/v1/jobs/00000000-0000-0000-0000-000000000006/result",
+      "queue_position": 3,
+      "estimated_wait_s": 12
+    }
+  ]
+}

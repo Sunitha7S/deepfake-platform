@@ -1,0 +1,170 @@
+{
+  "schema_version": "1.0.0",
+  "job_id": "00000000-0000-0000-0000-000000000001",
+  "created_at": "2026-08-23T14:30:00Z",
+  "media": {
+    "kind": "image",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+    "size_bytes": 2184233,
+    "mime": "image/jpeg",
+    "width": 1920,
+    "height": 1080,
+    "duration_s": null,
+    "frame_count": null,
+    "fps": null
+  },
+  "verdict": "manipulated",
+  "p_fake": 0.9134827362,
+  "interval": [
+    0.8712,
+    0.9455
+  ],
+  "threshold": {
+    "value": 0.62,
+    "target_fpr": 0.02,
+    "band_lo": 0.5210084033613445,
+    "band_hi": 0.7099236641221374
+  },
+  "abstain_reason": null,
+  "quality": {
+    "jpeg_q_est": 88.0,
+    "face_px": 412,
+    "blur_score": 0.12,
+    "resolution_class": "high",
+    "gate_passed": true,
+    "gate_reason": null
+  },
+  "branches": [
+    {
+      "id": "A",
+      "name": "Spatial",
+      "status": "scored",
+      "logit": 2.3581093,
+      "p": 0.9136,
+      "weight": 0.72,
+      "abstain_reason": null,
+      "version": "convnextv2t-sbi-1.0"
+    },
+    {
+      "id": "B",
+      "name": "Semantic",
+      "status": "scored",
+      "logit": 1.1204418,
+      "p": 0.754,
+      "weight": 0.24,
+      "abstain_reason": null,
+      "version": "dinov2b-probe-1.0"
+    },
+    {
+      "id": "P",
+      "name": "Provenance",
+      "status": "scored",
+      "logit": 0.0,
+      "p": null,
+      "weight": 0.04,
+      "abstain_reason": null,
+      "version": "c2pa-1.0"
+    }
+  ],
+  "disagreement": 0.1596,
+  "faces": [
+    {
+      "track_id": 0,
+      "bbox": {
+        "x": 742,
+        "y": 196,
+        "width": 436,
+        "height": 436
+      },
+      "landmarks": [
+        [
+          812.0,
+          340.0
+        ],
+        [
+          1010.0,
+          338.0
+        ],
+        [
+          912.0,
+          448.0
+        ],
+        [
+          836.0,
+          534.0
+        ],
+        [
+          992.0,
+          532.0
+        ]
+      ],
+      "frames_seen": 1,
+      "p_fake": 0.9134827362,
+      "status": null
+    }
+  ],
+  "video": null,
+  "provenance": {
+    "c2pa": {
+      "present": false,
+      "signature_valid": null,
+      "signer": null,
+      "claim_generator": null,
+      "captured_at": null,
+      "edits_declared": []
+    },
+    "exif": {
+      "present": false,
+      "coherent": null,
+      "camera_make": null,
+      "camera_model": null,
+      "software": null,
+      "anomalies": []
+    },
+    "authenticity_credit": 0.0,
+    "findings": [
+      {
+        "label": "No content credentials",
+        "detail": "This file carries no C2PA manifest and no EXIF metadata. That is normal for images shared through social platforms, which strip metadata, and it neither supports nor undermines authenticity.",
+        "supports_authenticity": false
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "gradcam",
+      "ref": "/artifacts/00000001/gradcam.png",
+      "mime": "image/png",
+      "width": 1920,
+      "height": 1080,
+      "expires_at": null,
+      "caption": "Regions that most influenced this score"
+    },
+    {
+      "kind": "spectrum",
+      "ref": "/artifacts/00000001/spectrum.svg",
+      "mime": "image/svg+xml",
+      "width": null,
+      "height": null,
+      "expires_at": null,
+      "caption": "Frequency profile compared with the authentic reference band"
+    }
+  ],
+  "model": {
+    "version": "1.0.0-dev",
+    "branch_versions": {
+      "A": "convnextv2t-sbi-1.0",
+      "B": "dinov2b-probe-1.0",
+      "P": "c2pa-1.0"
+    },
+    "calibration_temp": 1.37,
+    "git_sha": "0000000000000000000000000000000000000000"
+  },
+  "timing": {
+    "queued_ms": 71,
+    "preprocess_ms": 355,
+    "inference_ms": 781,
+    "explain_ms": 170,
+    "total_ms": 1420
+  }
+}

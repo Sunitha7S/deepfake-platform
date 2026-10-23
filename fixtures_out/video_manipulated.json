@@ -1,0 +1,422 @@
+{
+  "schema_version": "1.0.0",
+  "job_id": "00000000-0000-0000-0000-000000000006",
+  "created_at": "2026-08-23T14:30:00Z",
+  "media": {
+    "kind": "video",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000006",
+    "size_bytes": 41882004,
+    "mime": "video/mp4",
+    "width": 1920,
+    "height": 1080,
+    "duration_s": 12.0,
+    "frame_count": 300,
+    "fps": 25.0
+  },
+  "verdict": "manipulated",
+  "p_fake": 0.8871029384,
+  "interval": [
+    0.8018,
+    0.9344
+  ],
+  "threshold": {
+    "value": 0.62,
+    "target_fpr": 0.02,
+    "band_lo": 0.5210084033613445,
+    "band_hi": 0.7099236641221374
+  },
+  "abstain_reason": null,
+  "quality": {
+    "jpeg_q_est": 71.0,
+    "face_px": 356,
+    "blur_score": 0.22,
+    "resolution_class": "high",
+    "gate_passed": true,
+    "gate_reason": null
+  },
+  "branches": [
+    {
+      "id": "A",
+      "name": "Spatial",
+      "status": "scored",
+      "logit": 2.0672913,
+      "p": 0.8877,
+      "weight": 0.78,
+      "abstain_reason": null,
+      "version": "convnextv2t-sbi-1.0"
+    },
+    {
+      "id": "B",
+      "name": "Semantic",
+      "status": "scored",
+      "logit": 0.7710244,
+      "p": 0.6838,
+      "weight": 0.18,
+      "abstain_reason": null,
+      "version": "dinov2b-probe-1.0"
+    },
+    {
+      "id": "P",
+      "name": "Provenance",
+      "status": "scored",
+      "logit": 0.0,
+      "p": null,
+      "weight": 0.04,
+      "abstain_reason": null,
+      "version": "c2pa-1.0"
+    }
+  ],
+  "disagreement": 0.2039,
+  "faces": [
+    {
+      "track_id": 0,
+      "bbox": {
+        "x": 690,
+        "y": 180,
+        "width": 380,
+        "height": 380
+      },
+      "landmarks": [],
+      "frames_seen": 46,
+      "p_fake": 0.8871029384,
+      "status": null
+    }
+  ],
+  "video": {
+    "frames_sampled": 48,
+    "frames_scored": 46,
+    "sampling": "uniform",
+    "pooling": "topk_mean",
+    "frame_scores": [
+      {
+        "frame_idx": 0,
+        "t_ms": 0,
+        "p": 0.0600000148
+      },
+      {
+        "frame_idx": 6,
+        "t_ms": 250,
+        "p": 0.0600000576
+      },
+      {
+        "frame_idx": 12,
+        "t_ms": 500,
+        "p": 0.0600002124
+      },
+      {
+        "frame_idx": 18,
+        "t_ms": 750,
+        "p": 0.0600007421
+      },
+      {
+        "frame_idx": 24,
+        "t_ms": 1000,
+        "p": 0.0600024575
+      },
+      {
+        "frame_idx": 30,
+        "t_ms": 1250,
+        "p": 0.0600077133
+      },
+      {
+        "frame_idx": 36,
+        "t_ms": 1500,
+        "p": 0.0600229462
+      },
+      {
+        "frame_idx": 42,
+        "t_ms": 1750,
+        "p": 0.0600647022
+      },
+      {
+        "frame_idx": 48,
+        "t_ms": 2000,
+        "p": 0.060172926
+      },
+      {
+        "frame_idx": 54,
+        "t_ms": 2250,
+        "p": 0.0604380614
+      },
+      {
+        "frame_idx": 60,
+        "t_ms": 2500,
+        "p": 0.0610518237
+      },
+      {
+        "frame_idx": 66,
+        "t_ms": 2750,
+        "p": 0.0623937809
+      },
+      {
+        "frame_idx": 72,
+        "t_ms": 3000,
+        "p": 0.0651636799
+      },
+      {
+        "frame_idx": 78,
+        "t_ms": 3250,
+        "p": 0.0705576602
+      },
+      {
+        "frame_idx": 84,
+        "t_ms": 3500,
+        "p": 0.0804601825
+      },
+      {
+        "frame_idx": 90,
+        "t_ms": 3750,
+        "p": 0.0975824236
+      },
+      {
+        "frame_idx": 96,
+        "t_ms": 4000,
+        "p": 0.1254325006
+      },
+      {
+        "frame_idx": 102,
+        "t_ms": 4250,
+        "p": 0.1679781068
+      },
+      {
+        "frame_idx": 108,
+        "t_ms": 4500,
+        "p": 0.2288928851
+      },
+      {
+        "frame_idx": 114,
+        "t_ms": 4750,
+        "p": 0.3103920042
+      },
+      {
+        "frame_idx": 120,
+        "t_ms": 5000,
+        "p": 0.4118544221
+      },
+      {
+        "frame_idx": 126,
+        "t_ms": 5250,
+        "p": 0.528639646
+      },
+      {
+        "frame_idx": 132,
+        "t_ms": 5500,
+        "p": 0.6516276934
+      },
+      {
+        "frame_idx": 138,
+        "t_ms": 5750,
+        "p": 0.7679317958
+      },
+      {
+        "frame_idx": 144,
+        "t_ms": 6000,
+        "p": 0.8629117212
+      },
+      {
+        "frame_idx": 150,
+        "t_ms": 6250,
+        "p": 0.9231328246
+      },
+      {
+        "frame_idx": 156,
+        "t_ms": 6500,
+        "p": 0.9394697851
+      },
+      {
+        "frame_idx": 162,
+        "t_ms": 6750,
+        "p": 0.909371471
+      },
+      {
+        "frame_idx": 168,
+        "t_ms": 7000,
+        "p": 0.8375133798
+      },
+      {
+        "frame_idx": 174,
+        "t_ms": 7250,
+        "p": 0.7346080644
+      },
+      {
+        "frame_idx": 180,
+        "t_ms": 7500,
+        "p": 0.6147900216
+      },
+      {
+        "frame_idx": 186,
+        "t_ms": 7750,
+        "p": 0.4924532942
+      },
+      {
+        "frame_idx": 192,
+        "t_ms": 8000,
+        "p": 0.3795091012
+      },
+      {
+        "frame_idx": 198,
+        "t_ms": 8250,
+        "p": 0.2837487991
+      },
+      {
+        "frame_idx": 204,
+        "t_ms": 8500,
+        "p": 0.2085154543
+      },
+      {
+        "frame_idx": 210,
+        "t_ms": 8750,
+        "p": 0.1534363874
+      },
+      {
+        "frame_idx": 216,
+        "t_ms": 9000,
+        "p": 0.1157177903
+      },
+      {
+        "frame_idx": 222,
+        "t_ms": 9250,
+        "p": 0.0914923585
+      },
+      {
+        "frame_idx": 228,
+        "t_ms": 9500,
+        "p": 0.0768713542
+      },
+      {
+        "frame_idx": 234,
+        "t_ms": 9750,
+        "p": 0.068566988
+      },
+      {
+        "frame_idx": 240,
+        "t_ms": 10000,
+        "p": 0.0641232515
+      },
+      {
+        "frame_idx": 246,
+        "t_ms": 10250,
+        "p": 0.0618809833
+      },
+      {
+        "frame_idx": 252,
+        "t_ms": 10500,
+        "p": 0.0608133239
+      },
+      {
+        "frame_idx": 258,
+        "t_ms": 10750,
+        "p": 0.0603333309
+      },
+      {
+        "frame_idx": 264,
+        "t_ms": 11000,
+        "p": 0.0601294855
+      },
+      {
+        "frame_idx": 270,
+        "t_ms": 11250,
+        "p": 0.060047676
+      },
+      {
+        "frame_idx": 276,
+        "t_ms": 11500,
+        "p": 0.0600166384
+      },
+      {
+        "frame_idx": 282,
+        "t_ms": 11750,
+        "p": 0.0600055037
+      }
+    ],
+    "segments": [
+      {
+        "start_ms": 5500,
+        "end_ms": 7250,
+        "peak_p": 0.9394697851,
+        "mean_p": 0.8283208419,
+        "frame_count": 8
+      }
+    ],
+    "top_frames": [
+      {
+        "frame_idx": 156,
+        "t_ms": 6500,
+        "p": 0.9394697851,
+        "track_id": 0,
+        "thumbnail_ref": "/artifacts/00000006/frame_156.jpg",
+        "gradcam_ref": "/artifacts/00000006/gradcam_156.png"
+      },
+      {
+        "frame_idx": 150,
+        "t_ms": 6250,
+        "p": 0.9231328246,
+        "track_id": 0,
+        "thumbnail_ref": "/artifacts/00000006/frame_150.jpg",
+        "gradcam_ref": "/artifacts/00000006/gradcam_150.png"
+      },
+      {
+        "frame_idx": 162,
+        "t_ms": 6750,
+        "p": 0.909371471,
+        "track_id": 0,
+        "thumbnail_ref": "/artifacts/00000006/frame_162.jpg",
+        "gradcam_ref": "/artifacts/00000006/gradcam_162.png"
+      }
+    ]
+  },
+  "provenance": {
+    "c2pa": {
+      "present": false,
+      "signature_valid": null,
+      "signer": null,
+      "claim_generator": null,
+      "captured_at": null,
+      "edits_declared": []
+    },
+    "exif": {
+      "present": false,
+      "coherent": null,
+      "camera_make": null,
+      "camera_model": null,
+      "software": null,
+      "anomalies": []
+    },
+    "authenticity_credit": 0.0,
+    "findings": [
+      {
+        "label": "No content credentials",
+        "detail": "This file carries no C2PA manifest and no EXIF metadata. That is normal for images shared through social platforms, which strip metadata, and it neither supports nor undermines authenticity.",
+        "supports_authenticity": false
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "frame_curve",
+      "ref": "/artifacts/00000006/curve.svg",
+      "mime": "image/svg+xml",
+      "width": null,
+      "height": null,
+      "expires_at": null,
+      "caption": "Per-frame manipulation probability across the clip"
+    }
+  ],
+  "model": {
+    "version": "1.0.0-dev",
+    "branch_versions": {
+      "A": "convnextv2t-sbi-1.0",
+      "B": "dinov2b-probe-1.0",
+      "P": "c2pa-1.0"
+    },
+    "calibration_temp": 1.37,
+    "git_sha": "0000000000000000000000000000000000000000"
+  },
+  "timing": {
+    "queued_ms": 447,
+    "preprocess_ms": 2235,
+    "inference_ms": 4917,
+    "explain_ms": 1072,
+    "total_ms": 8940
+  }
+}

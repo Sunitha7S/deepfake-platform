@@ -1,0 +1,1439 @@
+{
+  "$defs": {
+    "AbstainReason": {
+      "description": "Why a branch declined to vote, or why the whole bundle abstained.\n\nThese are *outcomes*, not errors. They never map to an HTTP error status and\nnever render as a failure in the UI. Contrast with ``ErrorCode``.",
+      "enum": [
+        "no_face_detected",
+        "face_too_small",
+        "quality_below_floor",
+        "excessive_compression",
+        "too_few_frames",
+        "no_provenance_data",
+        "branch_not_applicable",
+        "branch_error",
+        "score_in_abstention_band"
+      ],
+      "title": "AbstainReason",
+      "type": "string"
+    },
+    "Artifact": {
+      "additionalProperties": false,
+      "description": "A rendered explanation, stored out of band and referenced by URL.\n\nNever inlined as base64 \u2014 a bundle must stay small enough to cache cheaply.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "ref": {
+          "description": "Signed, expiring URL or storage key.",
+          "title": "Ref",
+          "type": "string"
+        },
+        "mime": {
+          "title": "Mime",
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "caption": {
+          "description": "User-facing caption. For GRADCAM this MUST read as attribution ('regions that most influenced this score'), never as localisation.",
+          "title": "Caption",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "mime",
+        "caption"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "ArtifactKind": {
+      "enum": [
+        "gradcam",
+        "spectrum",
+        "frame_curve",
+        "thumbnail"
+      ],
+      "title": "ArtifactKind",
+      "type": "string"
+    },
+    "BoundingBox": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        },
+        "width": {
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "BranchId": {
+      "description": "Evidence sources. ``C`` is intentionally absent \u2014 see module docstring.",
+      "enum": [
+        "A",
+        "B",
+        "P"
+      ],
+      "title": "BranchId",
+      "type": "string"
+    },
+    "BranchResult": {
+      "additionalProperties": false,
+      "description": "One evidence source's contribution.\n\n``logit`` is stored at full precision and must never be rounded before\npersistence. Rounding collapses distinct saturated scores into ties, which\nsilently perturbs AUC and breaks the monotonic relationship between logit\nand p_fake that calibration depends on.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/BranchId"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/BranchStatus"
+        },
+        "logit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Raw pre-calibration logit. Full precision, never rounded. For branch P this is a one-sided authenticity credit and MUST be >= 0 \u2014 absence of provenance contributes exactly zero, never positive evidence of manipulation.",
+          "title": "Logit"
+        },
+        "p": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Branch-local probability, for display only.",
+          "title": "P"
+        },
+        "weight": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fusion coefficient applied. Null when the branch did not score.",
+          "title": "Weight"
+        },
+        "abstain_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AbstainReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "status"
+      ],
+      "title": "BranchResult",
+      "type": "object"
+    },
+    "BranchStatus": {
+      "enum": [
+        "scored",
+        "abstained",
+        "unavailable"
+      ],
+      "title": "BranchStatus",
+      "type": "string"
+    },
+    "C2paReport": {
+      "additionalProperties": false,
+      "properties": {
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        },
+        "signature_valid": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Null when no manifest was present.",
+          "title": "Signature Valid"
+        },
+        "signer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Signer"
+        },
+        "claim_generator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Claim Generator"
+        },
+        "captured_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Captured At"
+        },
+        "edits_declared": {
+          "description": "Declared edit actions from the manifest, if any.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Edits Declared",
+          "type": "array"
+        }
+      },
+      "required": [
+        "present"
+      ],
+      "title": "C2paReport",
+      "type": "object"
+    },
+    "EvidenceBundle": {
+      "additionalProperties": false,
+      "description": "The single result object. Cached under ``sha256 + model.version``.",
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "job_id": {
+          "format": "uuid",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "media": {
+          "$ref": "#/$defs/MediaInfo"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict",
+          "description": "The three-state result for the media's single published face \u2014 the largest one detected (face_order_key selects it; see FaceTrack's own note). A multi-subject photograph's verdict describes one person in it; the platform does not currently score or publish evidence for any other face present (R16, open)."
+        },
+        "p_fake": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Calibrated probability of manipulation. Null iff the verdict is insufficient_evidence. Stored at full precision \u2014 never round before persisting. Describes the same single selected face verdict does, not an aggregate over every face in the media.",
+          "title": "P Fake"
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Uncertainty band around p_fake. Widens with branch disagreement.",
+          "title": "Interval"
+        },
+        "threshold": {
+          "$ref": "#/$defs/ThresholdInfo"
+        },
+        "abstain_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AbstainReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Required iff verdict is insufficient_evidence."
+        },
+        "quality": {
+          "$ref": "#/$defs/QualityReport"
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/BranchResult"
+          },
+          "minItems": 1,
+          "title": "Branches",
+          "type": "array"
+        },
+        "disagreement": {
+          "default": 0.0,
+          "description": "Spread across scored branches. Surfaced to the user rather than collapsed \u2014 contradiction between branches is information.",
+          "minimum": 0.0,
+          "title": "Disagreement",
+          "type": "number"
+        },
+        "faces": {
+          "items": {
+            "$ref": "#/$defs/FaceTrack"
+          },
+          "title": "Faces",
+          "type": "array"
+        },
+        "video": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VideoAnalysis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceReport"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/Artifact"
+          },
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelInfo"
+        },
+        "timing": {
+          "$ref": "#/$defs/Timing"
+        }
+      },
+      "required": [
+        "job_id",
+        "created_at",
+        "media",
+        "verdict",
+        "threshold",
+        "quality",
+        "branches",
+        "provenance",
+        "model",
+        "timing"
+      ],
+      "title": "EvidenceBundle",
+      "type": "object"
+    },
+    "ExifReport": {
+      "additionalProperties": false,
+      "properties": {
+        "present": {
+          "title": "Present",
+          "type": "boolean"
+        },
+        "coherent": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the declared camera, sensor dimensions and image dimensions agree. Null when no EXIF is present.",
+          "title": "Coherent"
+        },
+        "camera_make": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Make"
+        },
+        "camera_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Model"
+        },
+        "software": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Software"
+        },
+        "anomalies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Anomalies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "present"
+      ],
+      "title": "ExifReport",
+      "type": "object"
+    },
+    "FaceTrack": {
+      "additionalProperties": false,
+      "description": "One identity across the analysed frames.\n\n**What actually publishes these today, stated plainly because three other\nartifacts imply otherwise:**\n\n* **Images** yield exactly one track \u2014 the largest detected face, whose\n  verdict is published as the whole image's. That is a policy the product\n  chose for single-subject media, not a property of images; it is R16 and it\n  is open.\n* **Video yields none at all.** ``VideoPipeline`` runs no face detection, so\n  every video bundle carries ``faces=[]`` and a null ``quality.face_px``.\n  That is R18. The fixtures and the stub handlers depict a populated track\n  because they describe the post-SCRFD target the frontend builds against.\n* **``bbox`` is the detector's box, not the region the model scored.**\n  ``crop_face`` expands it by the selection policy's margin, then clips it\n  to the image \u2014 a different, and usually larger, window than what is\n  published here. No field on this contract carries that window;\n  recovering it requires re-deriving it from ``bbox`` and the shipped\n  ``FaceSelectionPolicy``, which a client cannot do from the wire alone.\n  That gap is R26, open.\n\n``frames_seen`` is therefore always 1 in practice; a value above 1 belongs to\nthe tracked video path that does not exist yet.",
+      "properties": {
+        "track_id": {
+          "minimum": 0,
+          "title": "Track Id",
+          "type": "integer"
+        },
+        "bbox": {
+          "$ref": "#/$defs/BoundingBox",
+          "description": "Representative box, in source-image coordinates."
+        },
+        "landmarks": {
+          "description": "5-point, source coordinates. Empty if unavailable.",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Landmarks",
+          "type": "array"
+        },
+        "frames_seen": {
+          "minimum": 1,
+          "title": "Frames Seen",
+          "type": "integer"
+        },
+        "p_fake": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "P Fake"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AbstainReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set when this track abstained; null when it scored."
+        }
+      },
+      "required": [
+        "track_id",
+        "bbox",
+        "frames_seen"
+      ],
+      "title": "FaceTrack",
+      "type": "object"
+    },
+    "FrameScore": {
+      "additionalProperties": false,
+      "description": "One point on the timeline curve.",
+      "properties": {
+        "frame_idx": {
+          "minimum": 0,
+          "title": "Frame Idx",
+          "type": "integer"
+        },
+        "t_ms": {
+          "minimum": 0,
+          "title": "T Ms",
+          "type": "integer"
+        },
+        "p": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "P",
+          "type": "number"
+        }
+      },
+      "required": [
+        "frame_idx",
+        "t_ms",
+        "p"
+      ],
+      "title": "FrameScore",
+      "type": "object"
+    },
+    "MediaInfo": {
+      "additionalProperties": false,
+      "description": "What was analysed. Identifies the input without retaining the user's filename.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/MediaKind"
+        },
+        "sha256": {
+          "description": "Content hash; half the cache key.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "mime": {
+          "title": "Mime",
+          "type": "string"
+        },
+        "width": {
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        },
+        "duration_s": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration S"
+        },
+        "frame_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Count"
+        },
+        "fps": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fps"
+        }
+      },
+      "required": [
+        "kind",
+        "sha256",
+        "size_bytes",
+        "mime",
+        "width",
+        "height"
+      ],
+      "title": "MediaInfo",
+      "type": "object"
+    },
+    "MediaKind": {
+      "enum": [
+        "image",
+        "video"
+      ],
+      "title": "MediaKind",
+      "type": "string"
+    },
+    "ModelInfo": {
+      "additionalProperties": false,
+      "description": "Traceability. Half the cache key, and the answer to 'which model said this'.",
+      "properties": {
+        "version": {
+          "description": "Release version of the whole ensemble.",
+          "title": "Version",
+          "type": "string"
+        },
+        "branch_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Branch Versions",
+          "type": "object"
+        },
+        "calibration_temp": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Calibration Temp"
+        },
+        "git_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git Sha"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "ModelInfo",
+      "type": "object"
+    },
+    "PresignedUpload": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "method": {
+          "$ref": "#/$defs/UploadMethod",
+          "default": "PUT"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Must be sent verbatim with the PUT.",
+          "title": "Headers",
+          "type": "object"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "expires_at"
+      ],
+      "title": "PresignedUpload",
+      "type": "object"
+    },
+    "ProvenanceFinding": {
+      "additionalProperties": false,
+      "description": "One human-readable line for the Results page. Rendered verbatim.",
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "supports_authenticity": {
+          "description": "True only for positive evidence. A finding that merely notes missing data sets this False and still contributes zero to the score.",
+          "title": "Supports Authenticity",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "label",
+        "detail",
+        "supports_authenticity"
+      ],
+      "title": "ProvenanceFinding",
+      "type": "object"
+    },
+    "ProvenanceReport": {
+      "additionalProperties": false,
+      "properties": {
+        "c2pa": {
+          "$ref": "#/$defs/C2paReport"
+        },
+        "exif": {
+          "$ref": "#/$defs/ExifReport"
+        },
+        "authenticity_credit": {
+          "description": "The one-sided feature handed to fusion. 0.0 means 'no information', which is the correct and common case. Bounded below at zero by construction so absence can never imply manipulation.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Authenticity Credit",
+          "type": "number"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ProvenanceFinding"
+          },
+          "title": "Findings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "c2pa",
+        "exif",
+        "authenticity_credit"
+      ],
+      "title": "ProvenanceReport",
+      "type": "object"
+    },
+    "QualityReport": {
+      "additionalProperties": false,
+      "description": "Input quality, and the gate's decision.\n\nThis is what routes low-information inputs to abstention *before* any model\nvotes, and what the fusion layer uses as an interaction term.",
+      "properties": {
+        "jpeg_q_est": {
+          "anyOf": [
+            {
+              "maximum": 100.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Jpeg Q Est"
+        },
+        "face_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Short edge \u2014 min(width, height), in source pixels \u2014 of the largest detected face, where face size is FaceBox.size_px (equal to the short edge): the one metric selection, the gate and this figure all read (see docs/FACE_SIZE_POLICY.md, R20). 0 when an image has no detected face; null on every video bundle, whose path runs no face stage (R18).",
+          "title": "Face Px"
+        },
+        "blur_score": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blur Score"
+        },
+        "resolution_class": {
+          "$ref": "#/$defs/ResolutionClass"
+        },
+        "gate_passed": {
+          "title": "Gate Passed",
+          "type": "boolean"
+        },
+        "gate_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AbstainReason"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "resolution_class",
+        "gate_passed"
+      ],
+      "title": "QualityReport",
+      "type": "object"
+    },
+    "ResolutionClass": {
+      "enum": [
+        "tiny",
+        "low",
+        "standard",
+        "high"
+      ],
+      "title": "ResolutionClass",
+      "type": "string"
+    },
+    "SuspectSegment": {
+      "additionalProperties": false,
+      "description": "A contiguous run above the hysteresis threshold.\n\nProduced by hysteresis rather than a single cut so that a curve hovering at\nthe boundary does not shatter into dozens of one-frame segments.",
+      "properties": {
+        "start_ms": {
+          "minimum": 0,
+          "title": "Start Ms",
+          "type": "integer"
+        },
+        "end_ms": {
+          "minimum": 0,
+          "title": "End Ms",
+          "type": "integer"
+        },
+        "peak_p": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Peak P",
+          "type": "number"
+        },
+        "mean_p": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Mean P",
+          "type": "number"
+        },
+        "frame_count": {
+          "minimum": 1,
+          "title": "Frame Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_ms",
+        "end_ms",
+        "peak_p",
+        "mean_p",
+        "frame_count"
+      ],
+      "title": "SuspectSegment",
+      "type": "object"
+    },
+    "ThresholdInfo": {
+      "additionalProperties": false,
+      "description": "The operating point. Published so a verdict can be re-derived from p_fake.\n\nTHE BAND IS DERIVED, NEVER CONFIGURED\n-------------------------------------\n``band_lo`` and ``band_hi`` are outputs of ``value`` and a single width\nparameter, not independent settings. They stay in the payload because\nclients read them and the response schema is frozen, but every construction\nis checked against the derivation, so a band that disagrees with its\nthreshold cannot be built \u2014 not by a factory, not by hand, and not by\ndeserialising a stored bundle.\n\nBefore this, the three were free to drift apart. ``decide`` compared against\n``value`` first and the band second, so a configuration with\n``band_hi > value`` silently truncated the band, and one with\n``band_hi < value`` opened a dead zone in which scores just under the\ndecision boundary were reported as authentic. Both were representable and\nneither was detectable from the published fields.\n\nTHE BAND STRADDLES THE THRESHOLD\n--------------------------------\n``band_lo < value < band_hi``, so the three regions partition [0, 1] with no\ngap and no overlap:\n\n    p <  band_lo   authentic\n    p <  band_hi   insufficient evidence\n    otherwise      manipulated\n\nNote what this means for calibration: the boundary a score is actually\ndecided at is ``band_hi``, not ``value``. ``value`` is the calibrated centre\n\u2014 the point ``threshold_at_fpr`` selects \u2014 and ``target_fpr`` is the false\npositive rate *at that centre*. Because the manipulated region starts above\nit, the achieved false positive rate is bounded above by ``target_fpr``\nrather than equal to it, and the cost is paid in detections: scores in\n``[value, band_hi)`` are calibrated as manipulated and are reported as\ninsufficient evidence instead.\n\nTHE BAND IS SYMMETRIC IN LOG-ODDS, NOT IN PROBABILITY\n-----------------------------------------------------\nThis is the Batch 7 change, and it is the whole of it. The edges are\n\n    band_lo = expit(logit(value) - margin)\n    band_hi = expit(logit(value) + margin)\n\nso the band is still *centred on its threshold* and still derived from one\nnumber \u2014 the centring has been moved to the scale where it means something.\n``margin`` is an evidence margin in log-odds: a margin of ln(1.5) says\n\"abstain unless the odds are at least 1.5x past the threshold odds\".\n\nTwo things forced this, one mathematical and one semantic.\n\n*Mathematical.* A band that is symmetric in probability with a width chosen\nindependently of the threshold **cannot exist** for every threshold: a width\nof w needs ``w/2 <= min(value, 1 - value)``, so any fixed w fails once the\nthreshold moves within w/2 of an endpoint. That is not a hypothetical. A 2%\nfalse-positive budget fitted on 22 negatives put the threshold at 0.9734,\nwhere no 0.20-wide symmetric band fits, and calibration raised (R11 in the\naudit). Clamping the band to [0, 1] is worse than raising: at that threshold\nthe clamped band is [0.8734, 1.0] and nothing is ever called manipulated\nagain. Log-odds symmetry has no such constraint \u2014 every finite margin around\nevery threshold strictly inside (0, 1) yields a valid band \u2014 so the failure\nis structurally gone rather than handled.\n\n*Semantic.* A fixed probability width is not a fixed amount of evidence.\nWidening from 0.50 to 0.60 is 0.41 nats; from 0.90 to 1.00 is unbounded. The\nold 0.20-wide band therefore meant something different at every threshold it\nwas used at, which is exactly why no value of it could be justified (R8).\n\n``band_width`` is retained as a derived, published quantity \u2014 it is what the\nrisk-coverage reports read \u2014 but it is an output now, never an input.",
+      "properties": {
+        "value": {
+          "description": "Calibrated centre of the operating point. Always strictly inside (0, 1), since a threshold at an endpoint has no log-odds and no band can bracket it \u2014 but the bound stays [0, 1] so the published JSON Schema is unchanged; the model validator below is what rejects the endpoints.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Value",
+          "type": "number"
+        },
+        "target_fpr": {
+          "description": "False positive rate the centre was tuned for. The achieved rate at the decision boundary (band_hi) is bounded above by this.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Target Fpr",
+          "type": "number"
+        },
+        "band_lo": {
+          "description": "Derived: expit(logit(value) - margin). Below this, authentic. Not a setting \u2014 the band is centred on the threshold in log-odds.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Band Lo",
+          "type": "number"
+        },
+        "band_hi": {
+          "description": "Derived: expit(logit(value) + margin). At or above this, manipulated. This, not value, is the decision boundary.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Band Hi",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value",
+        "target_fpr",
+        "band_lo",
+        "band_hi"
+      ],
+      "title": "ThresholdInfo",
+      "type": "object"
+    },
+    "Timing": {
+      "additionalProperties": false,
+      "description": "Where the time went. Every field is wall clock, in milliseconds.\n\n``queued_ms`` is time before analysis started and is therefore *outside*\n``total_ms``; the three work phases are inside it. The remainder \u2014\n``total_ms`` less the phases \u2014 is fusion, calibration and bundle\nconstruction, which are too small to be worth their own field but must not\nbe silently folded into one that means something else.",
+      "properties": {
+        "queued_ms": {
+          "description": "Submission to start of analysis. Outside total_ms.",
+          "minimum": 0,
+          "title": "Queued Ms",
+          "type": "integer"
+        },
+        "preprocess_ms": {
+          "description": "Decode, sampling, face detection, tensor preparation.",
+          "minimum": 0,
+          "title": "Preprocess Ms",
+          "type": "integer"
+        },
+        "inference_ms": {
+          "description": "Model forward passes only.",
+          "minimum": 0,
+          "title": "Inference Ms",
+          "type": "integer"
+        },
+        "explain_ms": {
+          "default": 0,
+          "description": "Artifact generation.",
+          "minimum": 0,
+          "title": "Explain Ms",
+          "type": "integer"
+        },
+        "total_ms": {
+          "description": "Wall clock for the whole analysis call.",
+          "minimum": 0,
+          "title": "Total Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queued_ms",
+        "preprocess_ms",
+        "inference_ms",
+        "total_ms"
+      ],
+      "title": "Timing",
+      "type": "object"
+    },
+    "TopFrame": {
+      "additionalProperties": false,
+      "description": "A frame surfaced as a thumbnail, with its own attribution artifact.",
+      "properties": {
+        "frame_idx": {
+          "minimum": 0,
+          "title": "Frame Idx",
+          "type": "integer"
+        },
+        "t_ms": {
+          "minimum": 0,
+          "title": "T Ms",
+          "type": "integer"
+        },
+        "p": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "P",
+          "type": "number"
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The faces[] track this frame's score is attributed to. **Null means no face was attributed** \u2014 which is every frame the current video path produces, because it scores whole frames and runs no face detection. A non-null value must name a track the bundle actually publishes; EvidenceBundle refuses a dangling reference.",
+          "title": "Track Id"
+        },
+        "thumbnail_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thumbnail Ref"
+        },
+        "gradcam_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gradcam Ref"
+        }
+      },
+      "required": [
+        "frame_idx",
+        "t_ms",
+        "p"
+      ],
+      "title": "TopFrame",
+      "type": "object"
+    },
+    "UploadMethod": {
+      "enum": [
+        "PUT",
+        "POST"
+      ],
+      "title": "UploadMethod",
+      "type": "string"
+    },
+    "Verdict": {
+      "description": "The three-state output. Never collapse this to a boolean.\n\n``INSUFFICIENT_EVIDENCE`` is a successful result, not a failure. It is\nreturned when the quality gate declines the input or when no branch was able\nto score it.",
+      "enum": [
+        "authentic",
+        "manipulated",
+        "insufficient_evidence"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "VideoAnalysis": {
+      "additionalProperties": false,
+      "description": "Present iff ``media.kind == video``.\n\n**The current video path runs no face detection.** It samples frames,\nresizes them whole to the model input, and scores them; it does not detect,\ncrop, track or attribute faces. So a video bundle publishes an empty\n``faces[]`` and a null ``quality.face_px``, and every ``top_frames[].track_id``\nis null. That is R18, and the frozen architecture's face stage for video is\nSCRFD work that has not landed \u2014 see ``docs/VIDEO_FACE_SEMANTICS.md``.\n\nThe fixtures in ``contracts/fixtures.py`` deliberately depict the *target*\nshape, with a populated ``FaceTrack`` and resolving track ids, because they\nare what the frontend builds against. They are not a description of what the\npipeline emits today.",
+      "properties": {
+        "frames_sampled": {
+          "minimum": 1,
+          "title": "Frames Sampled",
+          "type": "integer"
+        },
+        "frames_scored": {
+          "description": "Sampled frames that decoded and were scored. Never exceeds frames_sampled; lower when part of a damaged clip failed to decode. See the class docstring for what this field used to claim and why that was wrong (R18).",
+          "minimum": 0,
+          "title": "Frames Scored",
+          "type": "integer"
+        },
+        "sampling": {
+          "default": "uniform",
+          "description": "How frames were chosen \u2014 the ``sampling_rule`` of the ``VideoSelectionPolicy`` in force. Recorded so a result can be reproduced. The shipped value is plain uniform stride; nothing adaptive runs.",
+          "title": "Sampling",
+          "type": "string"
+        },
+        "pooling": {
+          "default": "topk_mean",
+          "description": "Aggregation over frames. 'topk_mean' is the v1 baseline; 'attention' once the temporal transformer beats it by a paired-bootstrap margin.",
+          "title": "Pooling",
+          "type": "string"
+        },
+        "frame_scores": {
+          "items": {
+            "$ref": "#/$defs/FrameScore"
+          },
+          "title": "Frame Scores",
+          "type": "array"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/SuspectSegment"
+          },
+          "title": "Segments",
+          "type": "array"
+        },
+        "top_frames": {
+          "items": {
+            "$ref": "#/$defs/TopFrame"
+          },
+          "title": "Top Frames",
+          "type": "array"
+        }
+      },
+      "required": [
+        "frames_sampled",
+        "frames_scored"
+      ],
+      "title": "VideoAnalysis",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Either somewhere to upload, or the answer already.\n\nExactly one of ``upload`` / ``cached_result`` is set. A cache hit short-\ncircuits the entire pipeline.",
+  "properties": {
+    "upload_id": {
+      "title": "Upload Id",
+      "type": "string"
+    },
+    "cache_hit": {
+      "title": "Cache Hit",
+      "type": "boolean"
+    },
+    "upload": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PresignedUpload"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "cached_result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EvidenceBundle"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "upload_id",
+    "cache_hit"
+  ],
+  "title": "CreateUploadResponse",
+  "type": "object",
+  "$id": "https://deepfake-platform/schema/1.0.0/CreateUploadResponse.json",
+  "examples": [
+    {
+      "upload_id": "u_01J8ZQ4M7X2K9V3P",
+      "cache_hit": false,
+      "upload": {
+        "url": "https://storage.example.com/uploads/u_01J8ZQ4M7X2K9V3P?X-Signature=abc123",
+        "method": "PUT",
+        "headers": {
+          "Content-Type": "image/jpeg"
+        },
+        "expires_at": "2026-08-23T14:45:00Z"
+      },
+      "cached_result": null
+    },
+    {
+      "upload_id": "u_01J8ZQ4M7X2K9V3P",
+      "cache_hit": true,
+      "upload": null,
+      "cached_result": {
+        "schema_version": "1.0.0",
+        "job_id": "00000000-0000-0000-0000-000000000001",
+        "created_at": "2026-08-23T14:30:00Z",
+        "media": {
+          "kind": "image",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
+          "size_bytes": 2184233,
+          "mime": "image/jpeg",
+          "width": 1920,
+          "height": 1080,
+          "duration_s": null,
+          "frame_count": null,
+          "fps": null
+        },
+        "verdict": "manipulated",
+        "p_fake": 0.9134827362,
+        "interval": [
+          0.8712,
+          0.9455
+        ],
+        "threshold": {
+          "value": 0.62,
+          "target_fpr": 0.02,
+          "band_lo": 0.5210084033613445,
+          "band_hi": 0.7099236641221374
+        },
+        "abstain_reason": null,
+        "quality": {
+          "jpeg_q_est": 88.0,
+          "face_px": 412,
+          "blur_score": 0.12,
+          "resolution_class": "high",
+          "gate_passed": true,
+          "gate_reason": null
+        },
+        "branches": [
+          {
+            "id": "A",
+            "name": "Spatial",
+            "status": "scored",
+            "logit": 2.3581093,
+            "p": 0.9136,
+            "weight": 0.72,
+            "abstain_reason": null,
+            "version": "convnextv2t-sbi-1.0"
+          },
+          {
+            "id": "B",
+            "name": "Semantic",
+            "status": "scored",
+            "logit": 1.1204418,
+            "p": 0.754,
+            "weight": 0.24,
+            "abstain_reason": null,
+            "version": "dinov2b-probe-1.0"
+          },
+          {
+            "id": "P",
+            "name": "Provenance",
+            "status": "scored",
+            "logit": 0.0,
+            "p": null,
+            "weight": 0.04,
+            "abstain_reason": null,
+            "version": "c2pa-1.0"
+          }
+        ],
+        "disagreement": 0.1596,
+        "faces": [
+          {
+            "track_id": 0,
+            "bbox": {
+              "x": 742,
+              "y": 196,
+              "width": 436,
+              "height": 436
+            },
+            "landmarks": [
+              [
+                812.0,
+                340.0
+              ],
+              [
+                1010.0,
+                338.0
+              ],
+              [
+                912.0,
+                448.0
+              ],
+              [
+                836.0,
+                534.0
+              ],
+              [
+                992.0,
+                532.0
+              ]
+            ],
+            "frames_seen": 1,
+            "p_fake": 0.9134827362,
+            "status": null
+          }
+        ],
+        "video": null,
+        "provenance": {
+          "c2pa": {
+            "present": false,
+            "signature_valid": null,
+            "signer": null,
+            "claim_generator": null,
+            "captured_at": null,
+            "edits_declared": []
+          },
+          "exif": {
+            "present": false,
+            "coherent": null,
+            "camera_make": null,
+            "camera_model": null,
+            "software": null,
+            "anomalies": []
+          },
+          "authenticity_credit": 0.0,
+          "findings": [
+            {
+              "label": "No content credentials",
+              "detail": "This file carries no C2PA manifest and no EXIF metadata. That is normal for images shared through social platforms, which strip metadata, and it neither supports nor undermines authenticity.",
+              "supports_authenticity": false
+            }
+          ]
+        },
+        "artifacts": [
+          {
+            "kind": "gradcam",
+            "ref": "/artifacts/00000001/gradcam.png",
+            "mime": "image/png",
+            "width": 1920,
+            "height": 1080,
+            "expires_at": null,
+            "caption": "Regions that most influenced this score"
+          },
+          {
+            "kind": "spectrum",
+            "ref": "/artifacts/00000001/spectrum.svg",
+            "mime": "image/svg+xml",
+            "width": null,
+            "height": null,
+            "expires_at": null,
+            "caption": "Frequency profile compared with the authentic reference band"
+          }
+        ],
+        "model": {
+          "version": "1.0.0-dev",
+          "branch_versions": {
+            "A": "convnextv2t-sbi-1.0",
+            "B": "dinov2b-probe-1.0",
+            "P": "c2pa-1.0"
+          },
+          "calibration_temp": 1.37,
+          "git_sha": "0000000000000000000000000000000000000000"
+        },
+        "timing": {
+          "queued_ms": 71,
+          "preprocess_ms": 355,
+          "inference_ms": 781,
+          "explain_ms": 170,
+          "total_ms": 1420
+        }
+      }
+    }
+  ]
+}

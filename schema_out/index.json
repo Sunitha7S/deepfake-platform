@@ -1,0 +1,15 @@
+{
+  "contract_version": "1.0.0",
+  "models": [
+    "AnalyzeAcceptedResponse",
+    "AnalyzeRequest",
+    "CreateUploadRequest",
+    "CreateUploadResponse",
+    "ErrorResponse",
+    "EvidenceBundle",
+    "HealthResponse",
+    "JobSpec",
+    "JobStatus",
+    "ProgressEvent"
+  ]
+}

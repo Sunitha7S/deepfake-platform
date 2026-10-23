@@ -7,8 +7,9 @@ dist/
 build/
 
 # generated
-fixtures_out/
-schema_out/
+# fixtures_out/ and schema_out/ are generated too, but committed on purpose:
+# the drift tests compare the committed copies with what contracts.fixtures and
+# contracts.schema produce, which is how a contract change gets noticed.
 .pytest_cache/
 .ruff_cache/
 

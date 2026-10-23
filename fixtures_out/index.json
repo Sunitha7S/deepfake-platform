@@ -1,0 +1,14 @@
+[
+  "error_too_large",
+  "image_authentic",
+  "image_authentic_signed",
+  "image_insufficient_evidence",
+  "image_manipulated",
+  "image_no_face",
+  "job_failed",
+  "job_running",
+  "job_succeeded",
+  "video_authentic",
+  "video_insufficient_evidence",
+  "video_manipulated"
+]

@@ -1,0 +1,15 @@
+{
+  "job_id": "00000000-0000-0000-0000-000000000006",
+  "state": "succeeded",
+  "progress": {
+    "stage": "finalizing",
+    "percent": 100,
+    "message": null
+  },
+  "submitted_at": "2026-08-23T14:30:00Z",
+  "started_at": "2026-08-23T14:30:00Z",
+  "finished_at": "2026-08-23T14:30:00Z",
+  "attempt": 1,
+  "error": null,
+  "result_url": "/api/v1/jobs/00000000-0000-0000-0000-000000000006/result"
+}

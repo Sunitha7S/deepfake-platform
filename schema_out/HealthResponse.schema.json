@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "BranchHealth": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "loaded": {
+          "title": "Loaded",
+          "type": "boolean"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "id",
+        "loaded"
+      ],
+      "title": "BranchHealth",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Readiness probe. Reports whether models are actually resident, not just\nwhether the process is up \u2014 a broken deploy must fail readiness and take no\ntraffic.",
+  "properties": {
+    "status": {
+      "description": "ok | degraded | starting",
+      "title": "Status",
+      "type": "string"
+    },
+    "model_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model Version"
+    },
+    "branches": {
+      "items": {
+        "$ref": "#/$defs/BranchHealth"
+      },
+      "title": "Branches",
+      "type": "array"
+    },
+    "device": {
+      "default": "cpu",
+      "title": "Device",
+      "type": "string"
+    },
+    "queue_depth": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Queue Depth",
+      "type": "object"
+    },
+    "uptime_s": {
+      "minimum": 0,
+      "title": "Uptime S",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "status",
+    "uptime_s"
+  ],
+  "title": "HealthResponse",
+  "type": "object",
+  "$id": "https://deepfake-platform/schema/1.0.0/HealthResponse.json",
+  "examples": [
+    {
+      "status": "ok",
+      "model_version": "1.0.0-dev",
+      "branches": [
+        {
+          "id": "A",
+          "loaded": true,
+          "version": "convnextv2t-sbi-1.0"
+        },
+        {
+          "id": "B",
+          "loaded": true,
+          "version": "dinov2b-probe-1.0"
+        },
+        {
+          "id": "P",
+          "loaded": true,
+          "version": "c2pa-1.0"
+        }
+      ],
+      "device": "cpu",
+      "queue_depth": {
+        "image": 0,
+        "video": 2
+      },
+      "uptime_s": 84210
+    }
+  ]
+}

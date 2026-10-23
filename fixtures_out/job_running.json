@@ -1,0 +1,15 @@
+{
+  "job_id": "00000000-0000-0000-0000-000000000006",
+  "state": "running",
+  "progress": {
+    "stage": "scoring",
+    "percent": 75,
+    "message": "Scoring 48 frames"
+  },
+  "submitted_at": "2026-08-23T14:30:00Z",
+  "started_at": "2026-08-23T14:30:00Z",
+  "finished_at": null,
+  "attempt": 1,
+  "error": null,
+  "result_url": null
+}

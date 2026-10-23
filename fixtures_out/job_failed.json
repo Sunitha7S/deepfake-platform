@@ -1,0 +1,19 @@
+{
+  "job_id": "00000000-0000-0000-0000-000000000009",
+  "state": "failed",
+  "progress": null,
+  "submitted_at": "2026-08-23T14:30:00Z",
+  "started_at": "2026-08-23T14:30:00Z",
+  "finished_at": "2026-08-23T14:30:00Z",
+  "attempt": 1,
+  "error": {
+    "code": "decode_failed",
+    "message": "That file couldn't be read. It may be corrupt or incompletely uploaded.",
+    "detail": "moov atom not found",
+    "field": null,
+    "retryable": false,
+    "job_id": null,
+    "retry_after_s": null
+  },
+  "result_url": null
+}

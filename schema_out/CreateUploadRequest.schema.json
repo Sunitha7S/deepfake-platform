@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "MediaKind": {
+      "enum": [
+        "image",
+        "video"
+      ],
+      "title": "MediaKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Asks for somewhere to put a file. Carries no bytes.\n\n``sha256`` is computed in the browser before upload. That is what allows the\nserver to answer with a finished result and skip the transfer entirely \u2014 on a\n200 MB video that is the whole perceived latency.",
+  "properties": {
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "size_bytes": {
+      "minimum": 1,
+      "title": "Size Bytes",
+      "type": "integer"
+    },
+    "content_type": {
+      "description": "Client-declared; re-sniffed from magic bytes later.",
+      "title": "Content Type",
+      "type": "string"
+    },
+    "media_kind": {
+      "$ref": "#/$defs/MediaKind"
+    },
+    "filename_hint": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Display only. Never used to build a storage path, never echoed back.",
+      "title": "Filename Hint"
+    }
+  },
+  "required": [
+    "sha256",
+    "size_bytes",
+    "content_type",
+    "media_kind"
+  ],
+  "title": "CreateUploadRequest",
+  "type": "object",
+  "$id": "https://deepfake-platform/schema/1.0.0/CreateUploadRequest.json",
+  "examples": [
+    {
+      "sha256": "3b1f8c2e9a7d4b6055e1c8f3a2d90b47e6c5148a9f0b3d2e7c614a58d093f2be",
+      "size_bytes": 2184233,
+      "content_type": "image/jpeg",
+      "media_kind": "image",
+      "filename_hint": "portrait.jpg"
+    },
+    {
+      "sha256": "3b1f8c2e9a7d4b6055e1c8f3a2d90b47e6c5148a9f0b3d2e7c614a58d093f2be",
+      "size_bytes": 41882004,
+      "content_type": "video/mp4",
+      "media_kind": "video",
+      "filename_hint": "clip.mp4"
+    }
+  ]
+}

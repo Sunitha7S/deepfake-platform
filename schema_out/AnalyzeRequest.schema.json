@@ -1,0 +1,59 @@
+{
+  "$defs": {
+    "AnalysisOptions": {
+      "additionalProperties": false,
+      "description": "Per-request knobs. All optional; defaults are the shipped configuration.",
+      "properties": {
+        "explain": {
+          "default": true,
+          "description": "Generate Grad-CAM and spectrum artifacts.",
+          "title": "Explain",
+          "type": "boolean"
+        },
+        "max_frames": {
+          "anyOf": [
+            {
+              "maximum": 256,
+              "minimum": 8,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Override the video frame budget.",
+          "title": "Max Frames"
+        }
+      },
+      "title": "AnalysisOptions",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Submitted after the bytes have landed in storage.",
+  "properties": {
+    "upload_id": {
+      "title": "Upload Id",
+      "type": "string"
+    },
+    "options": {
+      "$ref": "#/$defs/AnalysisOptions"
+    }
+  },
+  "required": [
+    "upload_id"
+  ],
+  "title": "AnalyzeRequest",
+  "type": "object",
+  "$id": "https://deepfake-platform/schema/1.0.0/AnalyzeRequest.json",
+  "examples": [
+    {
+      "upload_id": "u_01J8ZQ4M7X2K9V3P",
+      "options": {
+        "explain": true,
+        "max_frames": null
+      }
+    }
+  ]
+}

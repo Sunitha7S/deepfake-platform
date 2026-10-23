@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "file_too_large",
+    "message": "That file is larger than the limit. Images can be up to 25 MB and videos up to 200 MB.",
+    "detail": null,
+    "field": "size_bytes",
+    "retryable": false,
+    "job_id": null,
+    "retry_after_s": null
+  }
+}

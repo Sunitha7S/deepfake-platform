@@ -1,0 +1,145 @@
+{
+  "$defs": {
+    "ApiError": {
+      "additionalProperties": false,
+      "description": "One failure, described well enough for the UI to render a sentence.",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "description": "User-facing. Plain language, no jargon, no apology.",
+          "title": "Message",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operator-facing. Never shown to users.",
+          "title": "Detail"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Request field at fault, for 400s.",
+          "title": "Field"
+        },
+        "retryable": {
+          "description": "Whether retrying the same request could succeed.",
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "retry_after_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry After S"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "ApiError",
+      "type": "object"
+    },
+    "ErrorCode": {
+      "description": "Genuine failures. Everything here means the request could not be served.\n\nAn input the model cannot judge is NOT an error \u2014 it is a successful job\nwhose verdict is ``insufficient_evidence`` with an ``AbstainReason``.",
+      "enum": [
+        "unsupported_media_type",
+        "file_too_large",
+        "file_empty",
+        "duration_too_long",
+        "resolution_too_large",
+        "checksum_mismatch",
+        "invalid_request",
+        "upload_not_found",
+        "upload_expired",
+        "upload_incomplete",
+        "decode_failed",
+        "unsupported_codec",
+        "decode_timeout",
+        "model_unavailable",
+        "resource_exhausted",
+        "job_not_found",
+        "result_not_ready",
+        "rate_limited",
+        "internal_error"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The single error envelope. Every non-2xx response body is this shape.",
+  "properties": {
+    "error": {
+      "$ref": "#/$defs/ApiError"
+    }
+  },
+  "required": [
+    "error"
+  ],
+  "title": "ErrorResponse",
+  "type": "object",
+  "$id": "https://deepfake-platform/schema/1.0.0/ErrorResponse.json",
+  "examples": [
+    {
+      "error": {
+        "code": "decode_failed",
+        "message": "That file couldn't be read. It may be corrupt or incompletely uploaded.",
+        "detail": "moov atom not found",
+        "field": null,
+        "retryable": false,
+        "job_id": null,
+        "retry_after_s": null
+      }
+    },
+    {
+      "error": {
+        "code": "model_unavailable",
+        "message": "The analysis service is starting up. Try again in a moment.",
+        "detail": null,
+        "field": null,
+        "retryable": true,
+        "job_id": null,
+        "retry_after_s": 5
+      }
+    }
+  ]
+}

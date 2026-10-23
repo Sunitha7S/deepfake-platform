@@ -1,0 +1,137 @@
+{
+  "schema_version": "1.0.0",
+  "job_id": "00000000-0000-0000-0000-000000000003",
+  "created_at": "2026-08-23T14:30:00Z",
+  "media": {
+    "kind": "image",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000003",
+    "size_bytes": 14882301,
+    "mime": "image/jpeg",
+    "width": 3840,
+    "height": 2560,
+    "duration_s": null,
+    "frame_count": null,
+    "fps": null
+  },
+  "verdict": "authentic",
+  "p_fake": 0.0142093811,
+  "interval": [
+    0.0051,
+    0.0388
+  ],
+  "threshold": {
+    "value": 0.62,
+    "target_fpr": 0.02,
+    "band_lo": 0.5210084033613445,
+    "band_hi": 0.7099236641221374
+  },
+  "abstain_reason": null,
+  "quality": {
+    "jpeg_q_est": 97.0,
+    "face_px": 884,
+    "blur_score": 0.04,
+    "resolution_class": "high",
+    "gate_passed": true,
+    "gate_reason": null
+  },
+  "branches": [
+    {
+      "id": "A",
+      "name": "Spatial",
+      "status": "scored",
+      "logit": -3.8812094,
+      "p": 0.0202,
+      "weight": 0.68,
+      "abstain_reason": null,
+      "version": "convnextv2t-sbi-1.0"
+    },
+    {
+      "id": "B",
+      "name": "Semantic",
+      "status": "scored",
+      "logit": -3.1049183,
+      "p": 0.0429,
+      "weight": 0.22,
+      "abstain_reason": null,
+      "version": "dinov2b-probe-1.0"
+    },
+    {
+      "id": "P",
+      "name": "Provenance",
+      "status": "scored",
+      "logit": 1.44,
+      "p": null,
+      "weight": 0.1,
+      "abstain_reason": null,
+      "version": "c2pa-1.0"
+    }
+  ],
+  "disagreement": 0.0227,
+  "faces": [
+    {
+      "track_id": 0,
+      "bbox": {
+        "x": 1480,
+        "y": 610,
+        "width": 920,
+        "height": 920
+      },
+      "landmarks": [],
+      "frames_seen": 1,
+      "p_fake": 0.0142093811,
+      "status": null
+    }
+  ],
+  "video": null,
+  "provenance": {
+    "c2pa": {
+      "present": true,
+      "signature_valid": true,
+      "signer": "Leica Camera AG",
+      "claim_generator": "Leica M11-P",
+      "captured_at": "2026-07-04T09:12:44Z",
+      "edits_declared": [
+        "c2pa.color_adjustments"
+      ]
+    },
+    "exif": {
+      "present": true,
+      "coherent": true,
+      "camera_make": "Leica",
+      "camera_model": "M11-P",
+      "software": "Adobe Lightroom 14.2",
+      "anomalies": []
+    },
+    "authenticity_credit": 0.92,
+    "findings": [
+      {
+        "label": "Valid content credentials",
+        "detail": "Signed by Leica Camera AG at capture. The signature verifies against the file's current contents.",
+        "supports_authenticity": true
+      },
+      {
+        "label": "Declared edits",
+        "detail": "The manifest declares colour adjustments only. No content-altering edits are recorded.",
+        "supports_authenticity": true
+      }
+    ]
+  },
+  "artifacts": [],
+  "model": {
+    "version": "1.0.0-dev",
+    "branch_versions": {
+      "A": "convnextv2t-sbi-1.0",
+      "B": "dinov2b-probe-1.0",
+      "P": "c2pa-1.0"
+    },
+    "calibration_temp": 1.37,
+    "git_sha": "0000000000000000000000000000000000000000"
+  },
+  "timing": {
+    "queued_ms": 119,
+    "preprocess_ms": 595,
+    "inference_ms": 1309,
+    "explain_ms": 285,
+    "total_ms": 2380
+  }
+}

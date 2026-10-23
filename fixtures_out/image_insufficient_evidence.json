@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0.0",
+  "job_id": "00000000-0000-0000-0000-000000000005",
+  "created_at": "2026-08-23T14:30:00Z",
+  "media": {
+    "kind": "image",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000005",
+    "size_bytes": 18442,
+    "mime": "image/jpeg",
+    "width": 320,
+    "height": 240,
+    "duration_s": null,
+    "frame_count": null,
+    "fps": null
+  },
+  "verdict": "insufficient_evidence",
+  "p_fake": null,
+  "interval": null,
+  "threshold": {
+    "value": 0.62,
+    "target_fpr": 0.02,
+    "band_lo": 0.5210084033613445,
+    "band_hi": 0.7099236641221374
+  },
+  "abstain_reason": "face_too_small",
+  "quality": {
+    "jpeg_q_est": 34.0,
+    "face_px": 41,
+    "blur_score": 0.71,
+    "resolution_class": "tiny",
+    "gate_passed": false,
+    "gate_reason": "face_too_small"
+  },
+  "branches": [
+    {
+      "id": "A",
+      "name": "Spatial",
+      "status": "abstained",
+      "logit": null,
+      "p": null,
+      "weight": null,
+      "abstain_reason": "face_too_small",
+      "version": "convnextv2t-sbi-1.0"
+    },
+    {
+      "id": "B",
+      "name": "Semantic",
+      "status": "abstained",
+      "logit": null,
+      "p": null,
+      "weight": null,
+      "abstain_reason": "quality_below_floor",
+      "version": "dinov2b-probe-1.0"
+    },
+    {
+      "id": "P",
+      "name": "Provenance",
+      "status": "abstained",
+      "logit": null,
+      "p": null,
+      "weight": null,
+      "abstain_reason": "no_provenance_data",
+      "version": "c2pa-1.0"
+    }
+  ],
+  "disagreement": 0.0,
+  "faces": [
+    {
+      "track_id": 0,
+      "bbox": {
+        "x": 138,
+        "y": 76,
+        "width": 41,
+        "height": 41
+      },
+      "landmarks": [],
+      "frames_seen": 1,
+      "p_fake": null,
+      "status": "face_too_small"
+    }
+  ],
+  "video": null,
+  "provenance": {
+    "c2pa": {
+      "present": false,
+      "signature_valid": null,
+      "signer": null,
+      "claim_generator": null,
+      "captured_at": null,
+      "edits_declared": []
+    },
+    "exif": {
+      "present": false,
+      "coherent": null,
+      "camera_make": null,
+      "camera_model": null,
+      "software": null,
+      "anomalies": []
+    },
+    "authenticity_credit": 0.0,
+    "findings": [
+      {
+        "label": "No content credentials",
+        "detail": "This file carries no C2PA manifest and no EXIF metadata. That is normal for images shared through social platforms, which strip metadata, and it neither supports nor undermines authenticity.",
+        "supports_authenticity": false
+      }
+    ]
+  },
+  "artifacts": [],
+  "model": {
+    "version": "1.0.0-dev",
+    "branch_versions": {
+      "A": "convnextv2t-sbi-1.0",
+      "B": "dinov2b-probe-1.0",
+      "P": "c2pa-1.0"
+    },
+    "calibration_temp": 1.37,
+    "git_sha": "0000000000000000000000000000000000000000"
+  },
+  "timing": {
+    "queued_ms": 10,
+    "preprocess_ms": 52,
+    "inference_ms": 115,
+    "explain_ms": 25,
+    "total_ms": 210
+  }
+}

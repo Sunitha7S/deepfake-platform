@@ -1,0 +1,314 @@
+{
+  "$defs": {
+    "ApiError": {
+      "additionalProperties": false,
+      "description": "One failure, described well enough for the UI to render a sentence.",
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "message": {
+          "description": "User-facing. Plain language, no jargon, no apology.",
+          "title": "Message",
+          "type": "string"
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Operator-facing. Never shown to users.",
+          "title": "Detail"
+        },
+        "field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Request field at fault, for 400s.",
+          "title": "Field"
+        },
+        "retryable": {
+          "description": "Whether retrying the same request could succeed.",
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "retry_after_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry After S"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "ApiError",
+      "type": "object"
+    },
+    "ErrorCode": {
+      "description": "Genuine failures. Everything here means the request could not be served.\n\nAn input the model cannot judge is NOT an error \u2014 it is a successful job\nwhose verdict is ``insufficient_evidence`` with an ``AbstainReason``.",
+      "enum": [
+        "unsupported_media_type",
+        "file_too_large",
+        "file_empty",
+        "duration_too_long",
+        "resolution_too_large",
+        "checksum_mismatch",
+        "invalid_request",
+        "upload_not_found",
+        "upload_expired",
+        "upload_incomplete",
+        "decode_failed",
+        "unsupported_codec",
+        "decode_timeout",
+        "model_unavailable",
+        "resource_exhausted",
+        "job_not_found",
+        "result_not_ready",
+        "rate_limited",
+        "internal_error"
+      ],
+      "title": "ErrorCode",
+      "type": "string"
+    },
+    "JobProgress": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "$ref": "#/$defs/JobStage"
+        },
+        "percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent",
+          "type": "integer"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "stage",
+        "percent"
+      ],
+      "title": "JobProgress",
+      "type": "object"
+    },
+    "JobStage": {
+      "description": "Pipeline stages, reported as real progress rather than a fake animation.\n\nImage jobs pass through a subset; video jobs use all of them.",
+      "enum": [
+        "validating",
+        "decoding",
+        "sampling",
+        "detecting",
+        "tracking",
+        "scoring",
+        "temporal",
+        "fusing",
+        "explaining",
+        "finalizing"
+      ],
+      "title": "JobStage",
+      "type": "string"
+    },
+    "JobState": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "JobState",
+      "type": "string"
+    },
+    "JobStatus": {
+      "additionalProperties": false,
+      "description": "Polled by ``GET /jobs/{id}`` and pushed over SSE. Same shape both ways.",
+      "properties": {
+        "job_id": {
+          "format": "uuid",
+          "title": "Job Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/JobState"
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JobProgress"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "submitted_at": {
+          "format": "date-time",
+          "title": "Submitted At",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finished At"
+        },
+        "attempt": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ApiError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "result_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set once state is succeeded.",
+          "title": "Result Url"
+        }
+      },
+      "required": [
+        "job_id",
+        "state",
+        "submitted_at"
+      ],
+      "title": "JobStatus",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One SSE frame on ``GET /events/{job_id}``.\n\nSent as ``event: <event>`` with this object JSON-encoded as ``data:``.",
+  "properties": {
+    "event": {
+      "description": "One of: state, progress, done, error, heartbeat.",
+      "title": "Event",
+      "type": "string"
+    },
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/JobStatus"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event",
+    "job_id",
+    "status",
+    "at"
+  ],
+  "title": "ProgressEvent",
+  "type": "object",
+  "$id": "https://deepfake-platform/schema/1.0.0/ProgressEvent.json",
+  "examples": [
+    {
+      "event": "progress",
+      "job_id": "00000000-0000-0000-0000-000000000006",
+      "status": {
+        "job_id": "00000000-0000-0000-0000-000000000006",
+        "state": "running",
+        "progress": {
+          "stage": "scoring",
+          "percent": 75,
+          "message": "Scoring 48 frames"
+        },
+        "submitted_at": "2026-08-23T14:30:00Z",
+        "started_at": "2026-08-23T14:30:00Z",
+        "finished_at": null,
+        "attempt": 1,
+        "error": null,
+        "result_url": null
+      },
+      "at": "2026-08-23T14:30:00Z"
+    }
+  ]
+}
