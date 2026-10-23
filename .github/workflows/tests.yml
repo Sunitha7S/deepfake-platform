@@ -1,11 +1,9 @@
 # B24 (N5), docs/B24_N5_DESIGN.md §3.2.
 #
-# UNEXERCISED: this repository has no git remote and no commit history as of
-# B24 (see docs/B24_N5_DESIGN.md §1.3), so this workflow has never actually
-# run in GitHub Actions. It is authored conservatively (pinned action
-# versions, the same 3.12 interpreter pinned by .python-version) so it is
-# correct the moment the repo is hosted, but verify it on first push rather
-# than trusting it as tested.
+# UNEXERCISED: the repository has never been pushed, so this workflow has never
+# run in GitHub Actions. It is authored conservatively (pinned action versions,
+# the same 3.12 interpreter pinned by .python-version), but verify it on the
+# first push rather than trusting it as tested.
 name: tests
 
 on:
@@ -14,7 +12,19 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Windows, not Linux, on purpose. The shipped model_version literal
+    # (backend/config.py STUB_ENGINE_VERSION) ends in a decode-environment
+    # digest, .d.c9d4025c, that includes platform.system() and the OpenCV
+    # wheel's bundled FFmpeg and image-codec versions. It was generated on
+    # Windows/AMD64 with opencv-python==4.8.1.78, and it is pinned in
+    # backend/config.py and eight test files. On a Linux runner the engines
+    # report a different digest and those tests fail, as designed: a decode
+    # environment change must not share a result cache. Running CI on Linux
+    # needs a deliberate decision about a per-platform literal, not a relaxed
+    # check. windows-latest checks files out as CRLF (core.autocrlf=true);
+    # the suite was verified locally against a fresh clone checked out the
+    # same way.
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
