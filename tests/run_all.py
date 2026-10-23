@@ -75,6 +75,7 @@ import test_schema  # noqa: E402
 import test_split_lock  # noqa: E402
 import test_sqlite_queue  # noqa: E402
 import test_storage  # noqa: E402
+import test_unimplemented_backends  # noqa: E402
 import test_video_branches  # noqa: E402
 import test_worker_inference_integration  # noqa: E402
 import test_worker_main  # noqa: E402
@@ -144,6 +145,7 @@ SUITES = [
     ("S8-B32 per-queue retry policies applied", test_queue_retry_policy),
     ("S8-B33 job progress event stream (SSE)", test_events),
     ("S8-B34 rate limiting on the write endpoints", test_rate_limit),
+    ("S8-B35 production refuses unimplemented backends", test_unimplemented_backends),
 ]
 
 

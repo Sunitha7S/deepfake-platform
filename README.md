@@ -173,6 +173,8 @@ Constraints worth knowing:
   filesystem's: local disk, never NFS or SMB. The multi-host backend is meant to
   be Redis, and `jobqueue/redis.py` is still a skeleton that raises
   `NotImplementedError` — it is not a working option today.
+  `DFP_ENVIRONMENT=prod` refuses it at startup, and likewise refuses
+  `DFP_STORAGE_KIND=s3`, whose backend is also a skeleton.
 - Job claims are atomic across processes (`BEGIN IMMEDIATE` transactions), a
   worker that dies mid-job has its lease expire and the job retried with backoff,
   and a job is dead-lettered after its attempt budget or on a permanent error

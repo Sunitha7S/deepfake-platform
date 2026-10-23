@@ -399,10 +399,25 @@ class Settings(BaseSettings):
             return self
         if self.signing_secret.startswith("dev-only"):
             raise ValueError("signing_secret must be set in production")
-        if self.storage_kind == "s3" and not self.storage_bucket:
-            raise ValueError("storage_bucket is required when storage_kind='s3'")
-        if self.queue_kind == "redis" and not self.redis_url:
-            raise ValueError("redis_url is required when queue_kind='redis'")
+        # A skeleton backend builds without error and raises NotImplementedError
+        # from its first operation, so without this the deployment boots, reports
+        # itself started, and fails on its first request.
+        from jobqueue.registry import UNIMPLEMENTED_KINDS as UNIMPLEMENTED_QUEUES
+        from storage.registry import UNIMPLEMENTED_KINDS as UNIMPLEMENTED_STORAGE
+
+        if self.storage_kind in UNIMPLEMENTED_STORAGE:
+            raise ValueError(
+                f"storage_kind={self.storage_kind!r} is not implemented yet (the "
+                "backend is a skeleton that raises NotImplementedError), so it "
+                "cannot be used in production. Set DFP_STORAGE_KIND=local."
+            )
+        if self.queue_kind in UNIMPLEMENTED_QUEUES:
+            raise ValueError(
+                f"queue_kind={self.queue_kind!r} is not implemented yet (the "
+                "backend is a skeleton that raises NotImplementedError), so it "
+                "cannot be used in production. Set DFP_QUEUE_KIND=sqlite for "
+                "one host."
+            )
         if self.queue_kind == "memory":
             # Production runs the API and the worker as separate processes; an
             # in-process queue would accept every job and never deliver one.

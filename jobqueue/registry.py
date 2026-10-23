@@ -30,6 +30,14 @@ SHARED_KINDS: frozenset[str] = frozenset({"sqlite", "redis"})
 a worker each build their own, and a job enqueued in one is invisible to the
 other. ``backend.worker_main`` refuses to start on anything outside this set."""
 
+UNIMPLEMENTED_KINDS: frozenset[str] = frozenset({"redis"})
+"""Backends that are still skeletons raising ``NotImplementedError``.
+
+``build_queue`` constructs them without complaint, so a deployment pointed at
+one starts cleanly and fails on its first job. ``backend.config`` refuses them
+in production. Remove a kind from this set in the change that implements it;
+``tests/test_unimplemented_backends.py`` fails until you do."""
+
 IMAGE_QUEUE = "image"
 VIDEO_QUEUE = "video"
 

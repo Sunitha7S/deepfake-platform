@@ -24,6 +24,14 @@ from storage.signing import HmacUrlSigner, UrlSigner
 
 BackendKind = Literal["local", "s3"]
 
+UNIMPLEMENTED_KINDS: frozenset[str] = frozenset({"s3"})
+"""Backends that are still skeletons raising ``NotImplementedError``.
+
+``build_storage`` constructs them without complaint, so a deployment pointed at
+one starts cleanly and fails on its first request. ``backend.config`` refuses
+them in production. Remove a kind from this set in the change that implements
+it; ``tests/test_unimplemented_backends.py`` fails until you do."""
+
 
 class StorageConfig(BaseModel):
     """How to build a backend. Carries no environment knowledge."""
