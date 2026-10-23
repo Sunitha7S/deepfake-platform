@@ -212,7 +212,32 @@ def error_responses(*codes: ErrorCode) -> dict[int | str, dict[str, Any]]:
             "x-error-codes": [c.value for c in ordered],
             "x-component-name": component_name_for(ordered),
         }
+        headers = {
+            name: spec for c in ordered for name, spec in _RESPONSE_HEADERS.get(c, {}).items()
+        }
+        if headers:
+            out[status]["headers"] = headers
     return out
+
+
+_RESPONSE_HEADERS: dict[ErrorCode, dict[str, dict[str, Any]]] = {
+    ErrorCode.RATE_LIMITED: {
+        "Retry-After": {
+            "description": (
+                "Seconds until the client's one-minute window resets (1-60); "
+                "equal to `error.retry_after_s`."
+            ),
+            "schema": {"type": "integer", "minimum": 1, "maximum": 60},
+            "example": example_for(ErrorCode.RATE_LIMITED)["error"]["retry_after_s"],
+        }
+    },
+}
+"""Headers a code's response always carries, documented beside its body.
+
+Only where the server guarantees the header: ``error_response`` sets
+``Retry-After`` whenever ``retry_after_s`` is set, and the rate limiter always
+sets it. Other codes set ``retry_after_s`` only sometimes, so documenting the
+header for them would promise something the server does not always send."""
 
 
 def install_exception_handlers(app: FastAPI) -> None:

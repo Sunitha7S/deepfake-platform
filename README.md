@@ -106,14 +106,18 @@ environment variables, or a `.env` file in the directory they are started from.
 
 ```
 DFP_QUEUE_KIND=sqlite
+DFP_RATE_LIMIT_KIND=sqlite
 ```
 
-Everything else can stay at its default, which both processes then share:
+The second line matters only when you run more than one API process; it is
+required with `DFP_ENVIRONMENT=prod`. Everything else can stay at its default,
+which the processes then share:
 
 | Setting | Default | What lives there |
 |---|---|---|
 | `DFP_QUEUE_PATH` | `./var/queue.sqlite3` | The job queue: one SQLite file, plus its `-wal`/`-shm` side files |
 | `DFP_STORAGE_ROOT` | `./var/storage` | Uploaded files, upload sessions, results |
+| `DFP_RATE_LIMIT_PATH` | `./var/ratelimit.sqlite3` | Per-client request counts, shared by every API process |
 
 Relative paths resolve against **each process's own working directory**. Start
 both from the repo root, or set both variables to absolute paths. To confirm
@@ -126,8 +130,14 @@ local state.
 to a temporary overlay without touching `uv.lock`:
 
 ```bash
-uv run --locked --with uvicorn uvicorn backend.app:create_app --factory --host 127.0.0.1 --port 8000
+uv run --locked --with uvicorn uvicorn backend.app:create_app --factory --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
+
+`--no-proxy-headers` is not optional. By default uvicorn trusts
+`X-Forwarded-For` from 127.0.0.1 and rewrites the client address with it before
+the app sees the request, so a local caller could pick a new rate-limit
+identity per request (measured: five spoofed requests all passed a limit of
+three without the flag; with it, the fourth was refused).
 
 **3. Start the worker**, in a second terminal, from the same directory:
 
@@ -166,6 +176,22 @@ Constraints worth knowing:
   `jobqueue/registry.py`): image jobs get 3 attempts with jittered backoff from
   2 s up to 30 s; video jobs, which cost far more to rerun, get 2 attempts with
   backoff from 10 s up to 120 s. See `jobqueue/sqlite.py`.
+- **Rate limiting covers `POST /uploads` and `POST /analyze`**, which share
+  one budget of `DFP_RATE_LIMIT_PER_MINUTE` (60) requests per client per fixed
+  one-minute window. A full submission therefore costs two. Polling, the event
+  stream, results, `/health` and the byte `PUT` are not limited. Over the limit
+  the answer is `429 rate_limited` with `Retry-After` set to the seconds left
+  in the window (1–60, also in `error.retry_after_s`). Across a window boundary
+  a client can send up to twice the limit in quick succession.
+- **A client is its direct peer address.** `X-Forwarded-For`, `Forwarded` and
+  `X-Real-IP` are ignored, because no trusted proxy is configured and a client
+  can set those headers to anything. Behind a reverse proxy every caller
+  therefore shares the proxy's one budget.
+- **`DFP_RATE_LIMIT_KIND=memory` (the default) counts per process**, so N API
+  processes allow N times the limit; `sqlite` shares one count on one host
+  (atomic `BEGIN IMMEDIATE` upserts, local disk only). **Limiting across
+  hosts is not supported.** If the counter file cannot be reached, limited
+  requests fail with `500 internal_error` rather than pass unchecked.
 
 ## Running the test suites
 

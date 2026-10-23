@@ -27,6 +27,7 @@ from fastapi.openapi.utils import get_openapi
 from backend.config import Settings, get_settings
 from backend.errors import install_exception_handlers
 from backend.logging import configure_logging, get_logger, request_context
+from backend.ratelimit import RateLimiter, build_rate_limiter
 from backend.service import AnalysisService
 from jobqueue.base import QueueBackend
 from jobqueue.registry import build_queue
@@ -87,6 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         extra={
             "ready": ready,
             "queue_backend": repr(app.state.queue),
+            "rate_limiter": repr(app.state.rate_limiter),
             "queues": depths,
             "problems": problems or None,
         },
@@ -139,6 +141,7 @@ def create_app(
     storage: StorageBackend | None = None,
     queue: QueueBackend | None = None,
     sink: ResultSink | None = None,
+    rate_limiter: RateLimiter | None = None,
 ) -> FastAPI:
     """Build an application.
 
@@ -161,8 +164,15 @@ def create_app(
     storage = storage if storage is not None else build_storage(settings.storage_config())
     queue = queue if queue is not None else build_queue(settings.queue_config())
     sink = sink if sink is not None else StorageResultSink(storage)
+    if rate_limiter is None:
+        rate_limiter = build_rate_limiter(
+            settings.rate_limit_kind,
+            limit=settings.rate_limit_per_minute,
+            path=settings.rate_limit_path,
+        )
 
     app.state.settings = settings
+    app.state.rate_limiter = rate_limiter
     app.state.storage = storage
     app.state.queue = queue
     app.state.sink = sink

@@ -21,9 +21,15 @@ from fastapi import Depends, Request
 from pydantic import BaseModel, ConfigDict
 
 from backend.config import Settings
+from backend.errors import AppError
+from backend.logging import get_logger
+from backend.ratelimit import client_key
+from contracts.enums import ErrorCode
 
 if TYPE_CHECKING:  # pragma: no cover - import only for type names
     from backend.service import AnalysisService
+
+log = get_logger(__name__)
 
 PrincipalKind = Literal["anonymous", "user", "service"]
 
@@ -47,10 +53,10 @@ class Principal(BaseModel):
 
     @property
     def rate_limit_key(self) -> str:
-        """What per-caller limits count against.
+        """What per-caller limits count against, for an identified caller.
 
-        Anonymous callers will key on client IP once a limiter exists; the
-        indirection is here so that change lands in one place.
+        Anonymous callers all share this value, so the limiter keys them on
+        their peer address instead (``backend.ratelimit.client_key``).
         """
         return f"{self.kind}:{self.id}"
 
@@ -87,3 +93,28 @@ def get_service(request: Request) -> "AnalysisService":
 SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 PrincipalDep = Annotated[Principal, Depends(get_principal)]
 ServiceDep = Annotated["AnalysisService", Depends(get_service)]
+
+
+async def enforce_rate_limit(request: Request, principal: PrincipalDep) -> None:
+    """Count this request against its client's budget; 429 once it is spent.
+
+    Declared on a route's ``dependencies`` rather than its parameters, so it
+    runs before the body is validated: a malformed request still counts.
+    """
+    limiter = request.app.state.rate_limiter
+    key = client_key(request, principal.rate_limit_key, anonymous=principal.is_anonymous)
+    decision = await limiter.hit(key)
+    if not decision.allowed:
+        log.info(
+            "rate limited",
+            extra={"count": decision.count, "limit": limiter.limit,
+                   "retry_after_s": decision.retry_after_s},
+        )
+        raise AppError(
+            ErrorCode.RATE_LIMITED,
+            retry_after_s=decision.retry_after_s,
+            detail=f"limit is {limiter.limit} requests per minute",
+        )
+
+
+RateLimited = Depends(enforce_rate_limit)

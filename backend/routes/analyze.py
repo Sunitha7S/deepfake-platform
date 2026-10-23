@@ -19,7 +19,7 @@ import asyncio
 
 from fastapi import APIRouter, status
 
-from backend.deps import PrincipalDep, ServiceDep, SettingsDep
+from backend.deps import PrincipalDep, RateLimited, ServiceDep, SettingsDep
 from backend.errors import error_responses
 from contracts.enums import ErrorCode
 from backend.logging import get_logger
@@ -34,6 +34,7 @@ log = get_logger(__name__)
     response_model=AnalyzeAcceptedResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Queue an uploaded file for analysis",
+    dependencies=[RateLimited],
     responses={
         202: {
             "description": (
@@ -46,6 +47,7 @@ log = get_logger(__name__)
             ErrorCode.INVALID_REQUEST,
             ErrorCode.UPLOAD_NOT_FOUND,
             ErrorCode.UPLOAD_INCOMPLETE,
+            ErrorCode.RATE_LIMITED,
             ErrorCode.INTERNAL_ERROR,
         ),
     },

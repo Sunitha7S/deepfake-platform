@@ -348,8 +348,28 @@ class Settings(BaseSettings):
         default=True, description="JSON in every environment except an interactive dev shell."
     )
 
-    # ---- rate limiting (keys on Principal; see backend/deps.py) ---------
-    rate_limit_per_minute: int = Field(default=60, ge=1)
+    # ---- rate limiting (POST /uploads + POST /analyze; backend/ratelimit.py)
+    rate_limit_per_minute: int = Field(
+        default=60,
+        ge=1,
+        description=(
+            "Requests per client per fixed one-minute window, shared by POST "
+            "/uploads and POST /analyze. An anonymous client is its direct peer "
+            "address; forwarding headers are never trusted."
+        ),
+    )
+    rate_limit_kind: Literal["memory", "sqlite"] = Field(
+        default="memory",
+        description=(
+            "'memory' counts inside one process: with N API processes the "
+            "effective limit is N times the setting. 'sqlite' shares one count "
+            "between every API process on the host. No multi-host option."
+        ),
+    )
+    rate_limit_path: Path = Field(
+        default=Path("./var/ratelimit.sqlite3"),
+        description="Counter database file when rate_limit_kind is 'sqlite'.",
+    )
 
     @field_validator("api_prefix")
     @classmethod
@@ -387,6 +407,10 @@ class Settings(BaseSettings):
             # Production runs the API and the worker as separate processes; an
             # in-process queue would accept every job and never deliver one.
             raise ValueError("queue_kind='memory' cannot be used in production")
+        if self.rate_limit_kind == "memory":
+            # Each API process would keep its own count, multiplying the limit
+            # by however many processes the deployment runs.
+            raise ValueError("rate_limit_kind='memory' cannot be used in production")
         return self
 
     @model_validator(mode="after")
@@ -443,7 +467,7 @@ class Settings(BaseSettings):
         return f"{self.api_prefix}/results/{job_id}"
 
     def events_url(self, job_id: UUID | str) -> str:
-        """Not routed until S2, but responses already advertise it."""
+        """``GET /events/{job_id}``, the progress stream."""
         return f"{self.api_prefix}/events/{job_id}"
 
     def max_bytes_for(self, media_kind: str) -> int:

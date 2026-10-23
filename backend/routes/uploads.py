@@ -20,7 +20,7 @@ import asyncio
 
 from fastapi import APIRouter, Request, Response, status
 
-from backend.deps import PrincipalDep, ServiceDep, SettingsDep
+from backend.deps import PrincipalDep, RateLimited, ServiceDep, SettingsDep
 from backend.errors import AppError, error_responses
 from backend.logging import get_logger
 from contracts.api import CreateUploadRequest, CreateUploadResponse
@@ -35,6 +35,7 @@ log = get_logger(__name__)
     response_model=CreateUploadResponse,
     status_code=status.HTTP_200_OK,
     summary="Negotiate an upload, or receive a cached result",
+    dependencies=[RateLimited],
     responses={
         200: {
             "description": (
@@ -46,6 +47,7 @@ log = get_logger(__name__)
             ErrorCode.INVALID_REQUEST,
             ErrorCode.FILE_TOO_LARGE,
             ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+            ErrorCode.RATE_LIMITED,
             ErrorCode.INTERNAL_ERROR,
         ),
     },

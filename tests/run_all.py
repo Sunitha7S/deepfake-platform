@@ -24,6 +24,7 @@ import test_calibration_fingerprint  # noqa: E402
 import test_calibration_witness  # noqa: E402
 import test_evaluation_benchmark  # noqa: E402
 import test_events  # noqa: E402
+import test_rate_limit  # noqa: E402
 import test_evaluation_dataset  # noqa: E402
 import test_evaluation_identity  # noqa: E402
 import test_evaluation_metrics  # noqa: E402
@@ -142,6 +143,7 @@ SUITES = [
     ("S8-B31 shared SQLite job queue (API + worker processes)", test_sqlite_queue),
     ("S8-B32 per-queue retry policies applied", test_queue_retry_policy),
     ("S8-B33 job progress event stream (SSE)", test_events),
+    ("S8-B34 rate limiting on the write endpoints", test_rate_limit),
 ]
 
 

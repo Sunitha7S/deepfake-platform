@@ -1,5 +1,5 @@
 {
-  "fingerprint": "97012d47a4987069d563fde380a2dcdc0f93813f6deb35bf2472674f2431f591",
+  "fingerprint": "7f0944f724bc9293c8ebebc99799f0c0e50a62e7188bc9346a41cb359a4f68ad",
   "signature": {
     "components": {
       "AbstainReason": {
@@ -649,6 +649,7 @@
           "400": "none",
           "404": "none",
           "409": "none",
+          "429": "none",
           "500": "none"
         }
       },
@@ -661,6 +662,7 @@
           "400": "none",
           "413": "none",
           "415": "none",
+          "429": "none",
           "500": "none"
         }
       },

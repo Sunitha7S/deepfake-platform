@@ -347,7 +347,9 @@ def test_production_refuses_an_in_process_queue():
         assert "queue_kind='memory'" in str(exc)
     else:
         raise AssertionError("production accepted a queue the worker cannot reach")
-    ok = Settings(environment="prod", signing_secret=secret, queue_kind="sqlite")
+    ok = Settings(
+        environment="prod", signing_secret=secret, queue_kind="sqlite", rate_limit_kind="sqlite"
+    )
     assert ok.queue_kind == "sqlite"
 
 

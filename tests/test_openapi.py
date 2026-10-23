@@ -180,14 +180,16 @@ def test_every_operation_documents_a_failure():
 # less leaves an integrator guessing.
 EXPECTED_ERRORS: dict[tuple[str, str], set[str]] = {
     ("post", "/uploads"): {
-        "invalid_request", "file_too_large", "unsupported_media_type", "internal_error",
+        "invalid_request", "file_too_large", "unsupported_media_type", "rate_limited",
+        "internal_error",
     },
     ("put", "/uploads/{upload_id}"): {
         "invalid_request", "file_empty", "checksum_mismatch",
         "upload_not_found", "upload_expired", "file_too_large", "internal_error",
     },
     ("post", "/analyze"): {
-        "invalid_request", "upload_not_found", "upload_incomplete", "internal_error",
+        "invalid_request", "upload_not_found", "upload_incomplete", "rate_limited",
+        "internal_error",
     },
     ("get", "/jobs/{job_id}"): {"invalid_request", "job_not_found", "internal_error"},
     ("get", "/events/{job_id}"): {"invalid_request", "job_not_found", "internal_error"},
